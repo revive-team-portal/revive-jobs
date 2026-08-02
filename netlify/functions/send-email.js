@@ -4,7 +4,7 @@
 // Uses Resend API for all transactional emails
 // ============================================================
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_API_KEY = process.env.RESEND_KEY;
 const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
 
 exports.handler = async (event) => {

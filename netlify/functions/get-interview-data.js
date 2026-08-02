@@ -8,7 +8,7 @@
 // ============================================================
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 
 const headers = {
   'Access-Control-Allow-Origin': '*',

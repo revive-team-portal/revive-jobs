@@ -8,8 +8,8 @@
 // ============================================================
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
+const RESEND_API_KEY = process.env.RESEND_KEY;
 const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
 
 const headers = {

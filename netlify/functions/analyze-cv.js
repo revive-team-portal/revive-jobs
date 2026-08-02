@@ -4,7 +4,7 @@
 // Uses Claude API to analyse CV text
 // ============================================================
 
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+const CLAUDE_API_KEY = process.env.CLAUDE_KEY;
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 exports.handler = async (event) => {
