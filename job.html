@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Details — Revive Cafe Careers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: '#40d134', 'brand-dark': '#2b9622', 'brand-light': '#b5edb1', 'brand-pale': '#f0fdf0' },
+          fontFamily: { sans: ['Open Sans', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    .prose h1,.prose h2,.prose h3 { font-weight:700; color:#111; margin-top:1.5em; margin-bottom:0.5em; }
+    .prose h2 { font-size:1.25rem; }
+    .prose p { margin-bottom:1em; color:#555; line-height:1.75; }
+    .prose ul { list-style:disc; padding-left:1.5em; margin-bottom:1em; }
+    .prose ul li { color:#555; margin-bottom:0.3em; line-height:1.7; }
+    .prose strong { color:#333; }
+    .file-drop { border:2px dashed #d1d5db; transition:all 0.2s; }
+    .file-drop.dragover { border-color:#40d134; background:#f0fdf0; }
+    .step-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+<div id="app">
+
+  <!-- Nav -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-10">
+        <div>
+          <div class="font-bold text-gray-900 text-lg leading-tight">Revive Cafe</div>
+          <div class="text-xs text-gray-500 font-medium tracking-wider uppercase">Careers</div>
+        </div>
+      </a>
+      <a href="index.html" class="text-sm text-gray-600 hover:text-brand font-medium transition-colors flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        All Jobs
+      </a>
+    </div>
+  </nav>
+
+  <!-- Loading -->
+  <div v-if="loading" class="max-w-5xl mx-auto px-4 py-16 text-center">
+    <div class="inline-block w-8 h-8 border-4 rounded-full animate-spin" style="border-color:#40d134;border-top-color:transparent;"></div>
+    <p class="text-gray-500 mt-4">Loading job details...</p>
+  </div>
+
+  <!-- Not found -->
+  <div v-else-if="!job" class="max-w-5xl mx-auto px-4 py-16 text-center">
+    <div class="text-6xl mb-4">🔍</div>
+    <h2 class="text-2xl font-bold text-gray-800 mb-2">Job not found</h2>
+    <p class="text-gray-500 mb-6">This job may no longer be available.</p>
+    <a href="index.html" class="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-lg font-semibold transition-colors">View All Jobs</a>
+  </div>
+
+  <!-- Job Content -->
+  <div v-else>
+
+    <!-- Hero -->
+    <div style="background:#40d134;" class="py-10 px-4">
+      <div class="max-w-5xl mx-auto">
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
+          <span class="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">{{ formatType(job.type) }}</span>
+        </div>
+        <h1 class="text-white text-3xl md:text-4xl font-extrabold mb-3">{{ job.title }}</h1>
+        <div class="flex flex-wrap items-center gap-4 text-white/80 text-sm font-medium">
+          <span>📅 Posted {{ timeAgo(job.created_at) }}</span>
+          <span v-if="job.expiry_date">⏰ Applications close {{ formatDate(job.expiry_date) }}</span>
+          <span>📍 Auckland, New Zealand</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+      <!-- Main Content -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- Job Description -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 class="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
+            <span style="color:#40d134;">📋</span> About This Role
+          </h2>
+          <div class="prose" v-html="job.description || '<p>No description available.</p>'"></div>
+        </div>
+
+        <!-- Company History -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 class="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
+            <span style="color:#40d134;">🌿</span> About Revive Cafe
+          </h2>
+          <p class="text-gray-600 leading-relaxed whitespace-pre-line text-sm">{{ settings.company_history }}</p>
+        </div>
+
+        <!-- Benefits -->
+        <div class="bg-brand-pale rounded-xl border border-brand-light p-6">
+          <h2 class="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
+            <span style="color:#40d134;">⭐</span> Why Work at Revive?
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div v-for="(benefit, i) in benefits" :key="i" class="flex items-start gap-2">
+              <svg class="w-5 h-5 flex-shrink-0 mt-0.5" style="color:#40d134;" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              <span class="text-gray-700 text-sm">{{ benefit }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-4">
+        <!-- Apply CTA -->
+        <div class="bg-white rounded-xl border-2 border-brand p-6 sticky top-24">
+          <h3 class="font-extrabold text-gray-900 text-lg mb-1">Interested?</h3>
+          <p class="text-gray-500 text-sm mb-4">Apply now — it only takes a few minutes.</p>
+          <button @click="scrollToForm"
+            class="w-full bg-brand hover:bg-brand-dark text-white py-3 rounded-lg font-bold text-base transition-colors shadow-md">
+            Apply Now →
+          </button>
+          <div class="mt-4 text-xs text-gray-400 text-center">
+            {{ job.views || 0 }} people have viewed this role
+          </div>
+        </div>
+
+        <!-- Job Details Card -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 class="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider">Job Details</h3>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-500">Type</span>
+              <span class="font-semibold text-gray-800">{{ formatType(job.type) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">Location</span>
+              <span class="font-semibold text-gray-800">Auckland, NZ</span>
+            </div>
+            <div v-if="job.expiry_date" class="flex justify-between">
+              <span class="text-gray-500">Closes</span>
+              <span class="font-semibold text-gray-800">{{ formatDate(job.expiry_date) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Share -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 class="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider">Share This Job</h3>
+          <div class="flex gap-2">
+            <button @click="copyLink" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+              {{ copied ? '✓ Copied!' : '🔗 Copy Link' }}
+            </button>
+            <a :href="'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(currentUrl)" target="_blank"
+              class="flex-1 text-center bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+              Facebook
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== APPLICATION FORM ===== -->
+    <div id="apply-form" class="bg-gray-50 border-t border-gray-200 py-12 px-4">
+      <div class="max-w-3xl mx-auto">
+
+        <!-- Success State -->
+        <div v-if="submitted" class="bg-white rounded-2xl border-2 border-brand p-10 text-center">
+          <div class="text-6xl mb-4">🎉</div>
+          <h2 class="text-2xl font-extrabold text-gray-900 mb-3">Application Submitted!</h2>
+          <p class="text-gray-600 mb-2">Thank you for applying for <strong>{{ job.title }}</strong>.</p>
+          <p class="text-gray-500 text-sm mb-6">
+            We've sent a confirmation to <strong>{{ form.email }}</strong> with all the details.
+            If you don't hear back within two weeks, please consider your application unsuccessful at this time.
+          </p>
+          <a href="index.html" class="inline-block bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+            View Other Jobs
+          </a>
+        </div>
+
+        <!-- Form -->
+        <div v-else>
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Apply for {{ job.title }}</h2>
+            <p class="text-gray-500 text-sm">Fill in the form below — it takes about 5 minutes.</p>
+          </div>
+
+          <!-- Progress Steps -->
+          <div class="flex items-center justify-center gap-2 mb-8">
+            <div v-for="s in 3" :key="s" class="flex items-center gap-2">
+              <div class="step-dot" :style="{ background: step >= s ? '#40d134' : '#e5e7eb', color: step >= s ? 'white' : '#9ca3af' }">{{ s }}</div>
+              <div v-if="s < 3" class="w-8 h-0.5" :style="{ background: step > s ? '#40d134' : '#e5e7eb' }"></div>
+            </div>
+          </div>
+          <div class="text-center text-sm text-gray-500 mb-8 -mt-4">
+            <span v-if="step === 1">Personal Details</span>
+            <span v-else-if="step === 2">Your Application</span>
+            <span v-else>Visa & Submit</span>
+          </div>
+
+          <form @submit.prevent="step < 3 ? nextStep() : submitApplication()">
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 md:p-8 space-y-5">
+
+              <!-- STEP 1: Personal Details -->
+              <template v-if="step === 1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                    <input v-model="form.full_name" type="text" required placeholder="Your full name"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                      style="--tw-ring-color:#40d134;">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
+                    <input v-model="form.email" type="email" required placeholder="your@email.com"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Phone Number</label>
+                    <input v-model="form.phone" type="tel" placeholder="+64 21 000 0000"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Current Location</label>
+                    <input v-model="form.location" type="text" placeholder="e.g. Auckland, New Zealand"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">How did you hear about this job? <span class="text-red-500">*</span></label>
+                  <select v-model="form.referral_source" required
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                    <option value="">Select one...</option>
+                    <option value="seek">Seek</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="friend">Friend / Word of mouth</option>
+                    <option value="backpacker_board">Backpacker Board</option>
+                    <option value="sis">SIS</option>
+                    <option value="not_sure">Not sure</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </template>
+
+              <!-- STEP 2: Application Content -->
+              <template v-if="step === 2">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Mini Cover Letter <span class="text-red-500">*</span></label>
+                  <p class="text-xs text-gray-500 mb-2">Tell us a bit about yourself and why you'd be a great fit for this role (3–5 sentences is perfect).</p>
+                  <textarea v-model="form.cover_letter" required rows="5"
+                    placeholder="Write a short note about yourself and why you want to work at Revive Cafe..."
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+                  <div class="text-xs text-gray-400 text-right mt-1">{{ form.cover_letter.length }} characters</div>
+                </div>
+
+                <!-- Resume Upload -->
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Resume / CV <span class="text-red-500">*</span></label>
+                  <p class="text-xs text-gray-500 mb-2">Upload your resume. Accepted formats: PDF, DOCX. Max 10MB.</p>
+                  <div class="file-drop rounded-lg p-6 text-center cursor-pointer"
+                    :class="resumeFile ? 'border-brand bg-brand-pale' : ''"
+                    @dragover.prevent="$event.currentTarget.classList.add('dragover')"
+                    @dragleave.prevent="$event.currentTarget.classList.remove('dragover')"
+                    @drop.prevent="handleFileDrop($event, 'resume')"
+                    @click="$refs.resumeInput.click()">
+                    <input ref="resumeInput" type="file" class="hidden" accept=".pdf,.docx,.doc" @change="handleFileSelect($event, 'resume')">
+                    <div v-if="!resumeFile">
+                      <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      <p class="text-sm text-gray-600 font-medium">Click to upload or drag & drop</p>
+                      <p class="text-xs text-gray-400 mt-1">PDF or DOCX, max 10MB</p>
+                    </div>
+                    <div v-else class="flex items-center justify-center gap-3">
+                      <svg class="w-8 h-8" style="color:#40d134;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <div class="text-left">
+                        <p class="text-sm font-semibold text-gray-800">{{ resumeFile.name }}</p>
+                        <p class="text-xs text-gray-500">{{ formatFileSize(resumeFile.size) }}</p>
+                      </div>
+                      <button type="button" @click.stop="resumeFile = null" class="text-gray-400 hover:text-red-500 ml-2">✕</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cover Letter Upload (optional) -->
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Cover Letter File <span class="text-gray-400 font-normal">(optional)</span></label>
+                  <p class="text-xs text-gray-500 mb-2">If you have a separate cover letter document, you can upload it here.</p>
+                  <div class="file-drop rounded-lg p-4 text-center cursor-pointer"
+                    :class="coverLetterFile ? 'border-brand bg-brand-pale' : ''"
+                    @dragover.prevent="$event.currentTarget.classList.add('dragover')"
+                    @dragleave.prevent="$event.currentTarget.classList.remove('dragover')"
+                    @drop.prevent="handleFileDrop($event, 'coverLetter')"
+                    @click="$refs.coverInput.click()">
+                    <input ref="coverInput" type="file" class="hidden" accept=".pdf,.docx,.doc" @change="handleFileSelect($event, 'coverLetter')">
+                    <div v-if="!coverLetterFile">
+                      <p class="text-sm text-gray-500">Click to upload cover letter <span class="text-xs">(optional)</span></p>
+                    </div>
+                    <div v-else class="flex items-center justify-center gap-3">
+                      <svg class="w-6 h-6" style="color:#40d134;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <span class="text-sm font-semibold text-gray-800">{{ coverLetterFile.name }}</span>
+                      <button type="button" @click.stop="coverLetterFile = null" class="text-gray-400 hover:text-red-500">✕</button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- STEP 3: Visa & Submit -->
+              <template v-if="step === 3">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <label class="flex items-center gap-3 cursor-pointer">
+                    <input v-model="form.on_visa" type="checkbox" class="w-5 h-5 rounded" style="accent-color:#40d134;">
+                    <span class="text-sm font-semibold text-gray-700">I am currently on a visa in New Zealand</span>
+                  </label>
+                </div>
+
+                <div v-if="form.on_visa" class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Visa Type</label>
+                    <input v-model="form.visa_type" type="text" placeholder="e.g. Working Holiday"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Country of Origin</label>
+                    <input v-model="form.visa_country" type="text" placeholder="e.g. United Kingdom"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Visa Expiry Date</label>
+                    <input v-model="form.visa_expiry" type="date"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Visa Conditions</label>
+                    <input v-model="form.visa_conditions" type="text" placeholder="e.g. Can work 40hrs/week"
+                      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="bg-brand-pale rounded-lg p-4 border border-brand-light text-sm">
+                  <p class="font-bold text-gray-800 mb-2">Almost there! Please check your details:</p>
+                  <div class="space-y-1 text-gray-600">
+                    <p>👤 <strong>{{ form.full_name }}</strong></p>
+                    <p>📧 {{ form.email }}</p>
+                    <p>📱 {{ form.phone || 'No phone provided' }}</p>
+                    <p>📎 Resume: {{ resumeFile ? resumeFile.name : 'None uploaded' }}</p>
+                  </div>
+                </div>
+
+                <!-- Error -->
+                <div v-if="formError" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                  {{ formError }}
+                </div>
+              </template>
+
+            </div><!-- end form card -->
+
+            <!-- Step navigation -->
+            <div class="flex items-center justify-between mt-6">
+              <button v-if="step > 1" type="button" @click="step--"
+                class="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Back
+              </button>
+              <div v-else></div>
+
+              <button type="submit"
+                :disabled="submitting || (step === 2 && !resumeFile)"
+                class="flex items-center gap-2 text-white px-8 py-3 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                :style="{ background: submitting ? '#9ca3af' : '#40d134' }">
+                <span v-if="submitting" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span v-if="step < 3">Next Step →</span>
+                <span v-else-if="submitting">Submitting...</span>
+                <span v-else>Submit Application →</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- end job content -->
+
+</div><!-- end app -->
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const { createClient } = supabase;
+
+const SUPABASE_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'jobs' } });
+
+createApp({
+  setup() {
+    const job = ref(null);
+    const settings = ref({});
+    const loading = ref(true);
+    const step = ref(1);
+    const submitted = ref(false);
+    const submitting = ref(false);
+    const formError = ref('');
+    const copied = ref(false);
+    const resumeFile = ref(null);
+    const coverLetterFile = ref(null);
+    const currentUrl = ref(window.location.href);
+
+    const form = ref({
+      full_name: '', email: '', phone: '', location: '',
+      referral_source: '', cover_letter: '',
+      on_visa: false, visa_type: '', visa_country: '', visa_expiry: '', visa_conditions: ''
+    });
+
+    const benefits = computed(() => {
+      if (!settings.value.company_benefits) return [];
+      return settings.value.company_benefits.split('\n').filter(b => b.trim());
+    });
+
+    // Get job ID from URL
+    const jobId = new URLSearchParams(window.location.search).get('id');
+    // Get referral source from URL
+    const refSource = new URLSearchParams(window.location.search).get('ref');
+
+    async function loadData() {
+      if (!jobId) { loading.value = false; return; }
+      try {
+        const { data: jobData } = await sb.from('jobs').select('*').eq('id', jobId).eq('status', 'active').single();
+        job.value = jobData;
+
+        if (jobData) {
+          // Increment view count
+          await sb.from('jobs').update({ views: (jobData.views || 0) + 1 }).eq('id', jobId);
+          // Track referral view
+          await sb.from('job_views').insert({ job_id: jobId, referral_source: refSource });
+        }
+
+        // Load settings
+        const { data: settingsData } = await sb.from('settings').select('key, value');
+        if (settingsData) settingsData.forEach(s => { settings.value[s.key] = s.value; });
+      } catch (err) {
+        console.error('Error loading job:', err);
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    function nextStep() {
+      if (step.value === 1) {
+        if (!form.value.full_name || !form.value.email || !form.value.referral_source) {
+          formError.value = 'Please fill in all required fields.';
+          return;
+        }
+      }
+      if (step.value === 2 && !resumeFile.value) {
+        formError.value = 'Please upload your resume.';
+        return;
+      }
+      formError.value = '';
+      step.value++;
+    }
+
+    function handleFileSelect(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) { alert('File too large. Max 10MB.'); return; }
+      if (type === 'resume') resumeFile.value = file;
+      else coverLetterFile.value = file;
+    }
+
+    function handleFileDrop(event, type) {
+      event.currentTarget.classList.remove('dragover');
+      const file = event.dataTransfer.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) { alert('File too large. Max 10MB.'); return; }
+      if (type === 'resume') resumeFile.value = file;
+      else coverLetterFile.value = file;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    async function uploadFile(file, bucket) {
+      const ext = file.name.split('.').pop();
+      const filename = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
+      const { data, error } = await sb.storage.from(bucket).upload(filename, file);
+      if (error) throw error;
+      return { url: filename, filename: file.name };
+    }
+
+    async function extractCvText(file) {
+      if (!file) return '';
+      try {
+        if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          return result.value;
+        }
+        // For PDFs, return empty (will be analysed by visual content only)
+        return '';
+      } catch (e) {
+        console.warn('Could not extract CV text:', e);
+        return '';
+      }
+    }
+
+    async function submitApplication() {
+      formError.value = '';
+      submitting.value = true;
+
+      try {
+        // Check for existing application (duplicate detection)
+        const { data: existing } = await sb.from('applications')
+          .select('id').eq('email', form.value.email).eq('job_id', jobId);
+
+        if (existing && existing.length > 0) {
+          formError.value = 'You have already submitted an application for this role using this email address.';
+          submitting.value = false;
+          return;
+        }
+
+        // Upload files
+        let resumeUrl = null, resumeFilename = null;
+        let coverLetterUrl = null, coverLetterFilename = null;
+
+        if (resumeFile.value) {
+          const r = await uploadFile(resumeFile.value, 'jobs-resumes');
+          resumeUrl = r.url; resumeFilename = r.filename;
+        }
+        if (coverLetterFile.value) {
+          const c = await uploadFile(coverLetterFile.value, 'jobs-cover-letters');
+          coverLetterUrl = c.url; coverLetterFilename = c.filename;
+        }
+
+        // Insert application
+        const appData = {
+          job_id: jobId,
+          full_name: form.value.full_name,
+          email: form.value.email,
+          phone: form.value.phone,
+          location: form.value.location,
+          cover_letter: form.value.cover_letter,
+          resume_url: resumeUrl,
+          resume_filename: resumeFilename,
+          cover_letter_url: coverLetterUrl,
+          cover_letter_filename: coverLetterFilename,
+          referral_source: form.value.referral_source,
+          on_visa: form.value.on_visa,
+          visa_type: form.value.on_visa ? form.value.visa_type : null,
+          visa_country: form.value.on_visa ? form.value.visa_country : null,
+          visa_expiry: form.value.on_visa && form.value.visa_expiry ? form.value.visa_expiry : null,
+          visa_conditions: form.value.on_visa ? form.value.visa_conditions : null,
+        };
+
+        const { data: newApp, error: insertError } = await sb.from('applications').insert(appData).select().single();
+        if (insertError) throw insertError;
+
+        // Send confirmation email
+        try {
+          await fetch('/.netlify/functions/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'application_confirmation',
+              applicantName: form.value.full_name,
+              applicantEmail: form.value.email,
+              applicantPhone: form.value.phone,
+              applicantLocation: form.value.location,
+              referralSource: form.value.referral_source,
+              jobTitle: job.value.title,
+              jobType: job.value.type,
+              onVisa: form.value.on_visa,
+              visaType: form.value.visa_type,
+              visaCountry: form.value.visa_country,
+              visaExpiry: form.value.visa_expiry,
+              visaConditions: form.value.visa_conditions,
+              companyHistory: settings.value.company_history,
+              companyBenefits: settings.value.company_benefits,
+              employerName: job.value.employer_name,
+              employerEmail: job.value.employer_email
+            })
+          });
+          await sb.from('applications').update({ confirmation_sent: true }).eq('id', newApp.id);
+        } catch (emailErr) {
+          console.warn('Confirmation email failed:', emailErr);
+        }
+
+        // Trigger AI analysis asynchronously
+        if (resumeFile.value) {
+          extractCvText(resumeFile.value).then(async cvText => {
+            if (!cvText) return;
+            try {
+              const response = await fetch('/.netlify/functions/analyze-cv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  cvText,
+                  coverLetterText: form.value.cover_letter,
+                  jobTitle: job.value.title,
+                  jobDescription: job.value.description
+                })
+              });
+              if (response.ok) {
+                const analysis = await response.json();
+                await sb.from('applications').update({
+                  suitability_score: analysis.suitability_score,
+                  ai_score: analysis.ai_score,
+                  previous_employers: analysis.previous_employers,
+                  ai_analysis_notes: analysis.suitability_notes + ' ' + analysis.ai_notes
+                }).eq('id', newApp.id);
+              }
+            } catch (e) {
+              console.warn('AI analysis failed:', e);
+            }
+          });
+        }
+
+        submitted.value = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      } catch (err) {
+        console.error('Submit error:', err);
+        formError.value = 'Something went wrong. Please try again or email jobs@revivealicious.com';
+      } finally {
+        submitting.value = false;
+      }
+    }
+
+    function scrollToForm() {
+      document.getElementById('apply-form')?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function copyLink() {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        copied.value = true;
+        setTimeout(() => copied.value = false, 2000);
+      } catch (e) { alert('Copy: ' + window.location.href); }
+    }
+
+    function formatType(type) {
+      const map = { full_time: 'Full Time', part_time: 'Part Time', casual: 'Casual', fixed_term: 'Fixed Term' };
+      return map[type] || type;
+    }
+
+    function timeAgo(dateStr) {
+      const diff = Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return 'today';
+      if (diff === 1) return '1 day ago';
+      if (diff < 7) return diff + ' days ago';
+      if (diff < 30) return Math.floor(diff/7) + ' weeks ago';
+      return Math.floor(diff/30) + ' months ago';
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      return new Date(dateStr).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    onMounted(loadData);
+
+    return {
+      job, settings, loading, step, submitted, submitting, formError, copied,
+      resumeFile, coverLetterFile, form, benefits, currentUrl,
+      nextStep, handleFileSelect, handleFileDrop, formatFileSize, submitApplication,
+      scrollToForm, copyLink, formatType, timeAgo, formatDate
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Block access to sensitive files
+/DEPLOY.md  404
+/setup-db.sql  404
+/*.sql  404
+/*.toml  404

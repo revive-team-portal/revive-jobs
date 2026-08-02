@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal — Revive Cafe Jobs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: '#40d134', 'brand-dark': '#2b9622', 'brand-light': '#b5edb1', 'brand-pale': '#f0fdf0' },
+          fontFamily: { sans: ['Open Sans', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    .sidebar-link { transition: all 0.15s; }
+    .sidebar-link:hover { background: rgba(64,209,52,0.1); color: #40d134; }
+    .sidebar-link.active { background: rgba(64,209,52,0.15); color: #40d134; border-right: 3px solid #40d134; }
+    .score-badge { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; font-weight:700; font-size:13px; }
+    .prose-sm h1,.prose-sm h2,.prose-sm h3 { font-weight:700; color:#111; margin-top:1em; margin-bottom:0.5em; }
+    .prose-sm h2 { font-size:1.1rem; }
+    .prose-sm p { margin-bottom:0.75em; color:#555; line-height:1.6; font-size:14px; }
+    .prose-sm ul { list-style:disc; padding-left:1.5em; margin-bottom:0.75em; }
+    .prose-sm ul li { color:#555; font-size:14px; margin-bottom:0.25em; }
+    .tab-btn { border-bottom: 3px solid transparent; transition: all 0.15s; }
+    .tab-btn.active { border-bottom-color: #40d134; color: #40d134; }
+    .drag-drop { border: 2px dashed #d1d5db; transition: all 0.2s; }
+    .drag-drop.dragover { border-color: #40d134; background: #f0fdf0; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .modal-box { background:white; border-radius:16px; width:100%; max-height:90vh; overflow-y:auto; }
+    .resize-none { resize: none; }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+<div id="app" class="min-h-screen">
+
+  <!-- ======== LOGIN ======== -->
+  <div v-if="!loggedIn" class="min-h-screen flex items-center justify-center px-4" style="background: linear-gradient(135deg, #f0fdf0 0%, #e8f5e9 100%);">
+    <div class="w-full max-w-md">
+      <div class="text-center mb-8">
+        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-14 mx-auto mb-4">
+        <h1 class="text-2xl font-extrabold text-gray-900">Employer Portal</h1>
+        <p class="text-gray-500 text-sm mt-1">Revive Cafe Jobs Administration</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
+        <form @submit.prevent="login" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+            <input v-model="loginEmail" type="email" required placeholder="jobs@revivealicious.com"
+              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
+            <input v-model="loginPassword" type="password" required placeholder="••••••••"
+              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+          </div>
+          <div v-if="loginError" class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{{ loginError }}</div>
+          <button type="submit" :disabled="loggingIn"
+            class="w-full text-white py-3 rounded-lg font-bold text-base transition-colors shadow-md flex items-center justify-center gap-2"
+            :style="{ background: loggingIn ? '#9ca3af' : '#40d134' }">
+            <span v-if="loggingIn" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            {{ loggingIn ? 'Signing in...' : 'Sign In' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== MAIN APP ======== -->
+  <div v-else class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+      <div class="p-4 border-b border-gray-100">
+        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-8 mb-1">
+        <p class="text-xs text-gray-400 font-medium">Admin Portal</p>
+      </div>
+      <nav class="flex-1 py-4 space-y-1 px-2">
+        <button @click="view='dashboard'" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='dashboard' }">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Jobs Dashboard
+        </button>
+        <button @click="startNewJob" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='edit-job' && !editingJob.id }">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Post New Job
+        </button>
+        <button @click="view='settings'" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='settings' }">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Settings
+        </button>
+      </nav>
+      <div class="p-3 border-t border-gray-100">
+        <a href="index.html" target="_blank" class="block text-xs text-gray-400 hover:text-brand mb-2 transition-colors">↗ View Public Site</a>
+        <button @click="logout" class="w-full text-left text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 overflow-y-auto">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div v-if="view==='dashboard'" class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-extrabold text-gray-900">Jobs Dashboard</h1>
+            <p class="text-gray-500 text-sm">{{ jobs.length }} total job{{ jobs.length !== 1 ? 's' : '' }}</p>
+          </div>
+          <button @click="startNewJob" class="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Post New Job
+          </button>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="flex gap-1 mb-6 bg-white border border-gray-200 rounded-lg p-1 inline-flex">
+          <button v-for="f in ['all','active','draft','expired']" :key="f" @click="jobFilter = f"
+            class="px-4 py-1.5 rounded-md text-sm font-semibold transition-colors capitalize"
+            :class="jobFilter === f ? 'bg-brand text-white' : 'text-gray-600 hover:bg-gray-100'">
+            {{ f }}
+          </button>
+        </div>
+
+        <!-- Job tiles grid -->
+        <div v-if="filteredJobs.length === 0" class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+          <p class="text-gray-500">No jobs found. <button @click="startNewJob" class="text-brand font-semibold hover:underline">Post one now →</button></p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div v-for="job in filteredJobs" :key="job.id"
+            class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer"
+            @click="openJob(job)">
+            <div class="flex items-start justify-between mb-3">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                :class="job.status === 'active' ? 'bg-green-100 text-green-800' : job.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500'">
+                {{ job.status.charAt(0).toUpperCase() + job.status.slice(1) }}
+              </span>
+              <div class="flex gap-1">
+                <button @click.stop="cloneJob(job)" title="Clone job" class="text-gray-400 hover:text-brand p-1 rounded transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+                <button @click.stop="editJob(job)" title="Edit" class="text-gray-400 hover:text-brand p-1 rounded transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </button>
+              </div>
+            </div>
+            <h3 class="font-extrabold text-gray-900 text-base mb-1">{{ job.title }}</h3>
+            <p class="text-gray-500 text-xs mb-3">{{ formatType(job.type) }}</p>
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100 text-center">
+              <div>
+                <div class="font-bold text-lg text-gray-900">{{ job.views || 0 }}</div>
+                <div class="text-xs text-gray-400">Views</div>
+              </div>
+              <div>
+                <div class="font-bold text-lg text-gray-900">{{ job.app_count || 0 }}</div>
+                <div class="text-xs text-gray-400">Applied</div>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-gray-600">{{ daysAgo(job.created_at) }}d ago</div>
+                <div class="text-xs text-gray-400">Posted</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== JOB DETAIL (APPLICANTS) ===== -->
+      <div v-if="view==='job-detail' && selectedJob" class="p-6">
+        <!-- Header -->
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <button @click="view='dashboard'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-2 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Back to Dashboard
+            </button>
+            <h1 class="text-2xl font-extrabold text-gray-900">{{ selectedJob.title }}</h1>
+            <div class="flex items-center gap-3 mt-1 flex-wrap">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                :class="selectedJob.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'">
+                {{ selectedJob.status }}
+              </span>
+              <span class="text-sm text-gray-500">{{ formatType(selectedJob.type) }}</span>
+              <span class="text-sm text-gray-500">{{ applications.length }} applicant{{ applications.length !== 1 ? 's' : '' }}</span>
+            </div>
+          </div>
+          <div class="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+            <button @click="copyJobLink(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+              {{ copiedLink ? '✓ Copied!' : '🔗 Copy Job Link' }}
+            </button>
+            <button @click="editJob(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+              ✏️ Edit Job
+            </button>
+            <button @click="openInterviewSlots" class="bg-gray-100 hover:bg-brand-pale text-brand px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-brand-light">
+              🗓 Interview Slots
+            </button>
+          </div>
+        </div>
+
+        <!-- Referral Stats -->
+        <div v-if="referralStats.length" class="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+          <h3 class="text-sm font-bold text-gray-700 mb-3">📊 Where applicants found this job</h3>
+          <div class="flex flex-wrap gap-3">
+            <div v-for="stat in referralStats" :key="stat.source"
+              class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+              <span class="text-sm font-bold text-gray-900">{{ stat.count }}</span>
+              <span class="text-xs text-gray-500">{{ formatReferral(stat.source) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Filter + Search -->
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <input v-model="applicantSearch" placeholder="🔍 Search applicants..."
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 focus:outline-none focus:ring-2 focus:border-transparent">
+          <select v-model="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+            <option value="">All Status</option>
+            <option value="new">New</option>
+            <option value="shortlist_a">Shortlist A</option>
+            <option value="shortlist_b">Shortlist B</option>
+            <option value="interview">Interview</option>
+            <option value="hired">Hired</option>
+            <option value="not_suitable">Not Suitable</option>
+            <option value="not_hired">Not Hired</option>
+          </select>
+          <button @click="exportCSV" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+            ⬇ CSV
+          </button>
+          <button v-if="selectedForInterview.length" @click="sendInterviewInvites"
+            class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+            <span v-if="sendingInvites" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            Send {{ selectedForInterview.length }} Interview Invite{{ selectedForInterview.length !== 1 ? 's' : '' }}
+          </button>
+          <button v-if="notSuitableSelected.length" @click="sendBulkRejection"
+            class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+            Send {{ notSuitableSelected.length }} Rejection{{ notSuitableSelected.length !== 1 ? 's' : '' }}
+          </button>
+        </div>
+
+        <!-- Applicants table -->
+        <div v-if="loadingApplicants" class="text-center py-12"><div class="inline-block w-8 h-8 border-4 rounded-full animate-spin" style="border-color:#40d134;border-top-color:transparent;"></div></div>
+        <div v-else-if="filteredApplicants.length === 0" class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
+          <p class="text-gray-500">No applicants yet{{ statusFilter || applicantSearch ? ' matching your filter' : '' }}.</p>
+        </div>
+        <div v-else class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Applicant</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs hidden md:table-cell">Details</th>
+                <th class="text-center px-3 py-3 font-semibold text-gray-600 text-xs">Suit.</th>
+                <th class="text-center px-3 py-3 font-semibold text-gray-600 text-xs">Human</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs hidden lg:table-cell">Employers</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Status</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="app in filteredApplicants" :key="app.id"
+                class="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                @click="openApplicant(app)">
+                <td class="px-4 py-4">
+                  <div class="font-bold text-gray-900">{{ app.full_name }}</div>
+                  <div class="text-xs text-gray-500">{{ app.email }}</div>
+                  <div v-if="app.on_visa" class="text-xs mt-0.5 bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded inline-block">🌍 {{ app.visa_type }}</div>
+                  <div v-if="app.previous_apply_count > 1" class="text-xs mt-0.5 bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded inline-block">Applied {{ app.previous_apply_count }}x</div>
+                </td>
+                <td class="px-4 py-4 hidden md:table-cell">
+                  <div class="text-xs text-gray-600">{{ app.location || '—' }}</div>
+                  <div class="text-xs text-gray-400 mt-0.5">{{ formatReferral(app.referral_source) }}</div>
+                  <div class="text-xs text-gray-400 mt-0.5">{{ timeAgo(app.created_at) }}</div>
+                </td>
+                <td class="px-3 py-4 text-center">
+                  <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
+                <td class="px-3 py-4 text-center">
+                  <span v-if="app.ai_score" class="score-badge" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
+                <td class="px-4 py-4 hidden lg:table-cell">
+                  <div class="text-xs text-gray-600 max-w-xs truncate">{{ app.previous_employers || '—' }}</div>
+                </td>
+                <td class="px-4 py-4">
+                  <select v-model="app.status" @click.stop @change="updateStatus(app)"
+                    class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:border-transparent w-full"
+                    :class="statusSelectClass(app.status)">
+                    <option value="new">New</option>
+                    <option value="not_suitable">Not Suitable</option>
+                    <option value="shortlist_a">Shortlist A</option>
+                    <option value="shortlist_b">Shortlist B</option>
+                    <option value="interview">Interview</option>
+                    <option value="hired">Hired ✓</option>
+                    <option value="not_hired">Not Hired</option>
+                  </select>
+                </td>
+                <td class="px-4 py-4">
+                  <div class="flex gap-1">
+                    <button @click.stop="viewResume(app)" v-if="app.resume_url" title="View Resume"
+                      class="text-gray-400 hover:text-brand p-1.5 rounded transition-colors bg-gray-50 hover:bg-brand-pale">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== APPLICANT DETAIL ===== -->
+      <div v-if="view==='applicant-detail' && selectedApplicant" class="p-6">
+        <button @click="view='job-detail'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          Back to Applicants
+        </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Left column -->
+          <div class="lg:col-span-2 space-y-5">
+
+            <!-- Header -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <div class="flex items-start justify-between flex-wrap gap-4">
+                <div>
+                  <h1 class="text-2xl font-extrabold text-gray-900">{{ selectedApplicant.full_name }}</h1>
+                  <div class="flex flex-wrap gap-3 mt-2 text-sm text-gray-600">
+                    <span>📧 {{ selectedApplicant.email }}</span>
+                    <span v-if="selectedApplicant.phone">📱 {{ selectedApplicant.phone }}</span>
+                    <span v-if="selectedApplicant.location">📍 {{ selectedApplicant.location }}</span>
+                  </div>
+                  <div class="flex gap-2 mt-2 flex-wrap">
+                    <span v-if="selectedApplicant.on_visa" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                      🌍 {{ selectedApplicant.visa_type }} — expires {{ selectedApplicant.visa_expiry || 'unknown' }}
+                    </span>
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                      via {{ formatReferral(selectedApplicant.referral_source) }}
+                    </span>
+                    <span v-if="selectedApplicant.previous_apply_count > 1" class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-full font-semibold">
+                      Applied {{ selectedApplicant.previous_apply_count }}x
+                    </span>
+                  </div>
+                </div>
+                <select v-model="selectedApplicant.status" @change="updateStatus(selectedApplicant)"
+                  class="border-2 border-gray-300 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:border-transparent"
+                  :class="statusSelectClass(selectedApplicant.status)">
+                  <option value="new">New</option>
+                  <option value="not_suitable">Not Suitable</option>
+                  <option value="shortlist_a">Shortlist A</option>
+                  <option value="shortlist_b">Shortlist B</option>
+                  <option value="interview">Interview</option>
+                  <option value="hired">Hired ✓</option>
+                  <option value="not_hired">Not Hired</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- AI Scores -->
+            <div v-if="selectedApplicant.suitability_score || selectedApplicant.ai_score" class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">AI Analysis <span class="text-gray-400 font-normal normal-case text-xs">(indicative only)</span></h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="text-center p-4 rounded-xl bg-gray-50">
+                  <div class="text-4xl font-extrabold mb-1" :style="{ color: scoreColor(selectedApplicant.suitability_score) }">
+                    {{ selectedApplicant.suitability_score || '—' }}<span class="text-lg text-gray-400">/10</span>
+                  </div>
+                  <div class="text-sm font-semibold text-gray-700">Role Suitability</div>
+                  <div class="text-xs text-gray-400 mt-1">CV match to job</div>
+                </div>
+                <div class="text-center p-4 rounded-xl bg-gray-50">
+                  <div class="text-4xl font-extrabold mb-1" :style="{ color: aiScoreColor(selectedApplicant.ai_score) }">
+                    {{ selectedApplicant.ai_score || '—' }}<span class="text-lg text-gray-400">/10</span>
+                  </div>
+                  <div class="text-sm font-semibold text-gray-700">Human Writing</div>
+                  <div class="text-xs text-gray-400 mt-1">10 = fully human</div>
+                </div>
+              </div>
+              <div v-if="selectedApplicant.ai_analysis_notes" class="mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                {{ selectedApplicant.ai_analysis_notes }}
+              </div>
+            </div>
+
+            <!-- Previous employers -->
+            <div v-if="selectedApplicant.previous_employers" class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Previous Employers <span class="text-gray-400 font-normal normal-case text-xs">(AI extracted)</span></h3>
+              <p class="text-sm text-gray-700 leading-relaxed">{{ selectedApplicant.previous_employers }}</p>
+            </div>
+
+            <!-- Cover Letter -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Cover Letter</h3>
+              <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ selectedApplicant.cover_letter || 'No cover letter provided.' }}</p>
+            </div>
+
+            <!-- Resume -->
+            <div v-if="selectedApplicant.resume_url" class="bg-white rounded-xl border border-gray-200 p-5">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Resume / CV</h3>
+                <button @click="viewResume(selectedApplicant)"
+                  class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                  View Full Resume ↗
+                </button>
+              </div>
+              <!-- Inline DOCX preview -->
+              <div v-if="resumePreviewHtml" class="prose-sm border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto text-sm" v-html="resumePreviewHtml"></div>
+              <div v-else-if="loadingResume" class="text-center py-8 text-gray-500 text-sm">Loading preview...</div>
+              <div v-else class="text-center py-8">
+                <p class="text-gray-500 text-sm mb-3">{{ selectedApplicant.resume_filename }}</p>
+                <button @click="loadResumePreview(selectedApplicant)" class="text-brand hover:underline text-sm font-semibold">Load Preview</button>
+              </div>
+            </div>
+
+            <!-- Visa Details -->
+            <div v-if="selectedApplicant.on_visa" class="bg-blue-50 rounded-xl border border-blue-200 p-5">
+              <h3 class="font-bold text-blue-800 mb-3 text-sm uppercase tracking-wider">Visa Information</h3>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="text-blue-600 font-semibold">Type:</span> {{ selectedApplicant.visa_type }}</div>
+                <div><span class="text-blue-600 font-semibold">Country:</span> {{ selectedApplicant.visa_country }}</div>
+                <div><span class="text-blue-600 font-semibold">Expiry:</span> {{ selectedApplicant.visa_expiry }}</div>
+                <div><span class="text-blue-600 font-semibold">Conditions:</span> {{ selectedApplicant.visa_conditions || 'None' }}</div>
+              </div>
+            </div>
+
+            <!-- Extended form answers -->
+            <div v-if="selectedApplicant.extended_form_completed" class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Interview Form Answers</h3>
+              <div v-if="parsedInterviewNotes" class="space-y-4">
+                <div v-for="(item, key) in parsedInterviewNotes" :key="key">
+                  <p class="font-semibold text-gray-700 text-sm">{{ item.question }}</p>
+                  <p class="text-gray-600 text-sm mt-1">{{ item.answer || 'No answer provided' }}</p>
+                </div>
+              </div>
+              <div class="mt-3 text-xs text-green-700 bg-green-50 rounded px-3 py-1.5 inline-block font-semibold">
+                ✓ Declarations agreed
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right sidebar -->
+          <div class="space-y-4">
+
+            <!-- Interview Status -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Interview</h3>
+              <div v-if="selectedApplicant.interview_slot_id">
+                <div class="bg-brand-pale rounded-lg p-3 border border-brand-light mb-3">
+                  <p class="text-xs font-semibold text-gray-600 mb-1">Scheduled:</p>
+                  <p class="font-bold text-sm" style="color:#40d134;">{{ getSlotTime(selectedApplicant.interview_slot_id) }}</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.interview_invite_sent ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-700 font-semibold' : 'text-gray-500'">
+                    Invite sent{{ selectedApplicant.interview_invite_sent_at ? ' ' + timeAgo(selectedApplicant.interview_invite_sent_at) : '' }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.extended_form_completed ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-700 font-semibold' : 'text-gray-500'">Form completed</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.interview_slot_id ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-700 font-semibold' : 'text-gray-500'">Time confirmed</span>
+                </div>
+              </div>
+              <button v-if="!selectedApplicant.interview_invite_sent"
+                @click="sendSingleInterviewInvite(selectedApplicant)"
+                class="mt-3 w-full bg-brand hover:bg-brand-dark text-white py-2 rounded-lg text-sm font-semibold transition-colors">
+                Send Interview Invite
+              </button>
+            </div>
+
+            <!-- Notes -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Employer Notes</h3>
+              <textarea v-model="noteText" rows="5" placeholder="Add notes about this applicant..."
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+              <button @click="saveNote" :disabled="savingNote"
+                class="mt-2 w-full bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors">
+                {{ savingNote ? 'Saving...' : 'Save Notes' }}
+              </button>
+            </div>
+
+            <!-- Applied at -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-500">
+              <p>Applied: {{ formatFullDate(selectedApplicant.created_at) }}</p>
+              <p v-if="selectedApplicant.rejection_sent" class="mt-1 text-red-500">Rejection email sent {{ formatFullDate(selectedApplicant.rejection_sent_at) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== EDIT JOB ===== -->
+      <div v-if="view==='edit-job'" class="p-6">
+        <button @click="view = editingJob.id ? 'job-detail' : 'dashboard'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          {{ editingJob.id ? 'Cancel Editing' : 'Cancel' }}
+        </button>
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-6">{{ editingJob.id ? 'Edit Job' : 'Post New Job' }}</h1>
+
+        <form @submit.prevent="saveJob" class="max-w-3xl space-y-5">
+          <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Title <span class="text-red-500">*</span></label>
+                <input v-model="editingJob.title" type="text" required placeholder="e.g. Cafe Assistant"
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Type <span class="text-red-500">*</span></label>
+                <select v-model="editingJob.type" required
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  <option value="full_time">Full Time</option>
+                  <option value="part_time">Part Time</option>
+                  <option value="casual">Casual</option>
+                  <option value="fixed_term">Fixed Term</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
+                <select v-model="editingJob.status"
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Expiry Date</label>
+                <input v-model="editingJob.expiry_date" type="date"
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                <p class="text-xs text-gray-400 mt-1">Job auto-moves to Expired on this date</p>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Employer Name</label>
+                <input v-model="editingJob.employer_name" type="text" placeholder="e.g. Jeremy Dixon"
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Employer Email (Reply-To)</label>
+                <input v-model="editingJob.employer_email" type="email" placeholder="jeremy@revive.co.nz"
+                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Description <span class="text-red-500">*</span></label>
+              <p class="text-xs text-gray-400 mb-2">Supports basic HTML (bold, lists, headings). Full job details, requirements, responsibilities.</p>
+              <textarea v-model="editingJob.description" rows="14" required
+                placeholder="<h2>About the Role</h2>&#10;<p>We are looking for...</p>&#10;&#10;<h2>What you'll do</h2>&#10;<ul><li>...</li></ul>"
+                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+            </div>
+
+          </div>
+
+          <div v-if="jobSaveError" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">{{ jobSaveError }}</div>
+
+          <div class="flex gap-3">
+            <button type="submit" :disabled="savingJob"
+              class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-8 py-3 rounded-lg font-bold transition-colors shadow-md flex items-center gap-2">
+              <span v-if="savingJob" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              {{ savingJob ? 'Saving...' : (editingJob.id ? 'Save Changes' : 'Post Job') }}
+            </button>
+            <button type="button" @click="editingJob.status = 'active'; saveJob()" v-if="editingJob.status !== 'active'"
+              class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
+              Save & Activate
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== SETTINGS ===== -->
+      <div v-if="view==='settings'" class="p-6">
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-6">Settings</h1>
+
+        <!-- Tabs -->
+        <div class="flex gap-6 border-b border-gray-200 mb-6">
+          <button v-for="t in settingsTabs" :key="t.key" @click="settingsTab = t.key"
+            class="tab-btn pb-3 text-sm font-semibold text-gray-600 transition-colors"
+            :class="{ active: settingsTab === t.key }">
+            {{ t.label }}
+          </button>
+        </div>
+
+        <!-- Company Info Tab -->
+        <div v-if="settingsTab === 'company'" class="max-w-3xl space-y-5">
+          <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Company History / Story</label>
+              <p class="text-xs text-gray-400 mb-2">Shown on public jobs page and in application confirmation emails.</p>
+              <textarea v-model="settingsForm.company_history" rows="8"
+                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Benefits of Working at Revive</label>
+              <p class="text-xs text-gray-400 mb-2">One benefit per line. Shown as bullet points on the public site.</p>
+              <textarea v-model="settingsForm.company_benefits" rows="8"
+                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+            </div>
+          </div>
+          <button @click="saveSettings(['company_history', 'company_benefits'])" :disabled="savingSettings"
+            class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-md">
+            {{ savingSettings ? 'Saving...' : 'Save Company Info' }}
+          </button>
+        </div>
+
+        <!-- Email Templates Tab -->
+        <div v-if="settingsTab === 'emails'" class="max-w-3xl space-y-6">
+          <div v-for="template in emailTemplates" :key="template.key" class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-bold text-gray-800 mb-1">{{ template.label }}</h3>
+            <p class="text-xs text-gray-400 mb-3">Variables: {{ template.vars }}</p>
+            <div class="mb-3">
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Subject</label>
+              <input v-model="settingsForm[template.subjectKey]" type="text"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Body</label>
+              <textarea v-model="settingsForm[template.key]" rows="8"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 resize-none"></textarea>
+            </div>
+          </div>
+          <button @click="saveAllEmailTemplates" :disabled="savingSettings"
+            class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-md">
+            {{ savingSettings ? 'Saving...' : 'Save Email Templates' }}
+          </button>
+        </div>
+
+        <!-- Interview Questions Tab -->
+        <div v-if="settingsTab === 'interview'" class="max-w-3xl space-y-5">
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-bold text-gray-800 mb-2">Interview Application Questions</h3>
+            <p class="text-xs text-gray-400 mb-3">One question per line. These appear on the interview booking form that candidates fill in after selecting their time slot.</p>
+            <textarea v-model="settingsForm.interview_form_questions" rows="8"
+              class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-bold text-gray-800 mb-2">Declarations Text</h3>
+            <p class="text-xs text-gray-400 mb-3">One declaration per line. Candidates must agree before confirming their interview.</p>
+            <textarea v-model="settingsForm.declarations_text" rows="6"
+              class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+          </div>
+          <button @click="saveSettings(['interview_form_questions', 'declarations_text'])" :disabled="savingSettings"
+            class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-md">
+            {{ savingSettings ? 'Saving...' : 'Save Interview Settings' }}
+          </button>
+        </div>
+
+        <!-- Gallery Tab -->
+        <div v-if="settingsTab === 'gallery'" class="max-w-3xl">
+          <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+            <h3 class="font-bold text-gray-800 mb-2">Hero Photos</h3>
+            <p class="text-xs text-gray-400 mb-4">Upload photos shown on the public jobs page hero section. 6 random ones are displayed. Recommended: landscape orientation, at least 800×600px.</p>
+
+            <!-- Upload -->
+            <div class="drag-drop rounded-lg p-6 text-center cursor-pointer mb-4"
+              @dragover.prevent="$event.currentTarget.classList.add('dragover')"
+              @dragleave.prevent="$event.currentTarget.classList.remove('dragover')"
+              @drop.prevent="handleGalleryDrop"
+              @click="$refs.galleryInput.click()">
+              <input ref="galleryInput" type="file" class="hidden" accept="image/*" multiple @change="uploadGalleryPhotos">
+              <p class="text-sm text-gray-600 font-medium">Click or drag to upload photos</p>
+              <p class="text-xs text-gray-400 mt-1">JPEG, PNG, WebP</p>
+            </div>
+            <div v-if="uploadingPhoto" class="text-center text-sm text-brand font-semibold mb-4">Uploading...</div>
+
+            <!-- Photo grid -->
+            <div v-if="galleryPhotos.length" class="grid grid-cols-3 gap-3">
+              <div v-for="photo in galleryPhotos" :key="photo.id" class="relative group rounded-lg overflow-hidden aspect-video bg-gray-100">
+                <img :src="photo.url" class="w-full h-full object-cover">
+                <button @click="deleteGalleryPhoto(photo)"
+                  class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  ✕
+                </button>
+              </div>
+            </div>
+            <p v-else class="text-gray-400 text-sm text-center py-4">No photos uploaded yet.</p>
+          </div>
+        </div>
+
+      </div><!-- end settings -->
+
+    </main>
+  </div>
+
+  <!-- ===== INTERVIEW SLOTS MODAL ===== -->
+  <div v-if="showSlotsModal" class="modal-overlay" @click.self="showSlotsModal = false">
+    <div class="modal-box max-w-lg p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-extrabold text-gray-900">Interview Slots — {{ selectedJob?.title }}</h2>
+        <button @click="showSlotsModal = false" class="text-gray-400 hover:text-gray-700 text-xl font-bold w-8 h-8 flex items-center justify-center rounded">✕</button>
+      </div>
+
+      <!-- Add slot -->
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4">
+        <h3 class="font-semibold text-gray-700 text-sm mb-3">Add New Slot</h3>
+        <div class="flex gap-2">
+          <input v-model="newSlotTime" type="datetime-local"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2">
+          <button @click="addSlot" :disabled="!newSlotTime || addingSlot"
+            class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+            Add
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">Tip: Add multiple 30-minute slots for the same day.</p>
+      </div>
+
+      <!-- Slot list -->
+      <div class="space-y-2 max-h-80 overflow-y-auto">
+        <div v-if="!jobSlots.length" class="text-center py-6 text-gray-500 text-sm">No slots added yet.</div>
+        <div v-for="slot in jobSlots" :key="slot.id"
+          class="flex items-center justify-between bg-white border rounded-lg px-4 py-3 text-sm"
+          :class="slot.is_booked ? 'border-brand bg-brand-pale' : 'border-gray-200'">
+          <div>
+            <span class="font-semibold text-gray-800">{{ formatSlotFull(slot.slot_time) }}</span>
+            <span v-if="slot.is_booked" class="ml-2 text-xs font-bold text-brand">✓ Booked</span>
+          </div>
+          <button v-if="!slot.is_booked" @click="deleteSlot(slot)"
+            class="text-gray-400 hover:text-red-500 transition-colors text-xs font-semibold">
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RESUME VIEWER MODAL ===== -->
+  <div v-if="showResumeModal" class="modal-overlay" @click.self="showResumeModal = false">
+    <div class="modal-box max-w-4xl p-0 overflow-hidden">
+      <div class="flex items-center justify-between p-4 border-b border-gray-200">
+        <h3 class="font-bold text-gray-900">{{ resumeModalFilename }}</h3>
+        <button @click="showResumeModal = false" class="text-gray-400 hover:text-gray-700 text-xl font-bold w-8 h-8 flex items-center justify-center">✕</button>
+      </div>
+      <div class="p-6 max-h-screen overflow-y-auto">
+        <div v-if="resumeModalType === 'docx'" class="prose-sm" v-html="resumeModalContent"></div>
+        <iframe v-else-if="resumeModalType === 'pdf'" :src="resumeModalContent" class="w-full" style="height:80vh;" frameborder="0"></iframe>
+        <p v-else class="text-gray-500">Unable to preview this file type.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end app -->
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script>
+const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createClient } = supabase;
+
+const SUPABASE_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'jobs' } });
+const BASE_URL = 'https://jobs.revive.co.nz';
+
+createApp({
+  setup() {
+    // Auth
+    const loggedIn = ref(false);
+    const loginEmail = ref('');
+    const loginPassword = ref('');
+    const loginError = ref('');
+    const loggingIn = ref(false);
+
+    // Navigation
+    const view = ref('dashboard');
+    const settingsTab = ref('company');
+
+    // Data
+    const jobs = ref([]);
+    const applications = ref([]);
+    const galleryPhotos = ref([]);
+    const settings = ref({});
+    const jobSlots = ref([]);
+    const referralStats = ref([]);
+
+    // Selected items
+    const selectedJob = ref(null);
+    const selectedApplicant = ref(null);
+    const editingJob = ref({});
+
+    // Filters
+    const jobFilter = ref('all');
+    const statusFilter = ref('');
+    const applicantSearch = ref('');
+
+    // UI state
+    const loadingApplicants = ref(false);
+    const savingJob = ref(false);
+    const savingNote = ref(false);
+    const savingSettings = ref(false);
+    const sendingInvites = ref(false);
+    const uploadingPhoto = ref(false);
+    const addingSlot = ref(false);
+    const copiedLink = ref(false);
+
+    // Modals
+    const showSlotsModal = ref(false);
+    const showResumeModal = ref(false);
+
+    // Resume preview
+    const resumePreviewHtml = ref(null);
+    const loadingResume = ref(false);
+    const resumeModalContent = ref('');
+    const resumeModalType = ref('');
+    const resumeModalFilename = ref('');
+
+    // Notes
+    const noteText = ref('');
+
+    // Form
+    const settingsForm = ref({});
+    const newSlotTime = ref('');
+    const jobSaveError = ref('');
+
+    const settingsTabs = [
+      { key: 'company', label: 'Company Info' },
+      { key: 'emails', label: 'Email Templates' },
+      { key: 'interview', label: 'Interview & Declarations' },
+      { key: 'gallery', label: 'Gallery Photos' }
+    ];
+
+    const emailTemplates = [
+      { key: 'email_confirmation_body', subjectKey: 'email_confirmation_subject', label: 'Application Confirmation', vars: '{{applicant_name}}, {{job_title}}, {{job_type}}, {{company_history}}, {{company_benefits}}' },
+      { key: 'email_interview_body', subjectKey: 'email_interview_subject', label: 'Interview Invitation', vars: '{{applicant_name}}, {{job_title}}, {{interview_link}}, {{employer_name}}' },
+      { key: 'email_rejection_body', subjectKey: 'email_rejection_subject', label: 'Rejection Email', vars: '{{applicant_name}}, {{job_title}}' }
+    ];
+
+    // Computed
+    const filteredJobs = computed(() => {
+      if (jobFilter.value === 'all') return jobs.value;
+      return jobs.value.filter(j => j.status === jobFilter.value);
+    });
+
+    const filteredApplicants = computed(() => {
+      let list = [...applications.value];
+      if (statusFilter.value) list = list.filter(a => a.status === statusFilter.value);
+      if (applicantSearch.value) {
+        const q = applicantSearch.value.toLowerCase();
+        list = list.filter(a =>
+          a.full_name?.toLowerCase().includes(q) ||
+          a.email?.toLowerCase().includes(q) ||
+          a.location?.toLowerCase().includes(q) ||
+          a.previous_employers?.toLowerCase().includes(q)
+        );
+      }
+      return list;
+    });
+
+    const selectedForInterview = computed(() =>
+      applications.value.filter(a => a.status === 'interview' && !a.interview_invite_sent)
+    );
+
+    const notSuitableSelected = computed(() =>
+      applications.value.filter(a => a.status === 'not_suitable' && !a.rejection_sent)
+    );
+
+    const parsedInterviewNotes = computed(() => {
+      if (!selectedApplicant.value?.interview_notes) return null;
+      try { return JSON.parse(selectedApplicant.value.interview_notes); }
+      catch { return null; }
+    });
+
+    // ============ AUTH ============
+    async function login() {
+      loggingIn.value = true;
+      loginError.value = '';
+      try {
+        const { error } = await sb.auth.signInWithPassword({
+          email: loginEmail.value, password: loginPassword.value
+        });
+        if (error) throw error;
+        loggedIn.value = true;
+        loadDashboard();
+      } catch (err) {
+        loginError.value = err.message || 'Login failed. Please check your credentials.';
+      } finally {
+        loggingIn.value = false;
+      }
+    }
+
+    async function logout() {
+      await sb.auth.signOut();
+      loggedIn.value = false;
+      view.value = 'dashboard';
+    }
+
+    async function checkSession() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) { loggedIn.value = true; loadDashboard(); }
+    }
+
+    // ============ DASHBOARD ============
+    async function loadDashboard() {
+      const { data } = await sb.from('jobs').select('*').order('created_at', { ascending: false });
+      if (data) {
+        // Count applications per job
+        for (const job of data) {
+          const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('job_id', job.id);
+          job.app_count = count || 0;
+        }
+        jobs.value = data;
+      }
+
+      // Load gallery
+      const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
+      galleryPhotos.value = photos || [];
+
+      // Load settings
+      const { data: settingsData } = await sb.from('settings').select('key, value');
+      if (settingsData) {
+        settingsData.forEach(s => {
+          settings.value[s.key] = s.value;
+          settingsForm.value[s.key] = s.value;
+        });
+      }
+
+      // Auto-expire jobs past their expiry date
+      const now = new Date().toISOString().split('T')[0];
+      await sb.from('jobs').update({ status: 'expired' })
+        .eq('status', 'active').lt('expiry_date', now).not('expiry_date', 'is', null);
+    }
+
+    // ============ JOB MANAGEMENT ============
+    async function openJob(job) {
+      selectedJob.value = job;
+      view.value = 'job-detail';
+      loadApplicants(job.id);
+      loadReferralStats(job.id);
+    }
+
+    async function loadApplicants(jobId) {
+      loadingApplicants.value = true;
+      try {
+        const { data } = await sb.from('applications').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
+        if (data) {
+          // Add previous application count
+          for (const app of data) {
+            const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('email', app.email);
+            app.previous_apply_count = count || 1;
+          }
+          applications.value = data;
+        }
+      } finally {
+        loadingApplicants.value = false;
+      }
+    }
+
+    async function loadReferralStats(jobId) {
+      const { data } = await sb.from('applications').select('referral_source').eq('job_id', jobId);
+      if (!data) return;
+      const counts = {};
+      data.forEach(a => {
+        if (a.referral_source) counts[a.referral_source] = (counts[a.referral_source] || 0) + 1;
+      });
+      // Also get view referrals
+      const { data: views } = await sb.from('job_views').select('referral_source').eq('job_id', jobId).not('referral_source', 'is', null);
+      const viewCounts = {};
+      if (views) views.forEach(v => { viewCounts[v.referral_source] = (viewCounts[v.referral_source] || 0) + 1; });
+
+      const stats = Object.entries(counts).map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 5);
+      referralStats.value = stats;
+    }
+
+    function startNewJob() {
+      editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '' };
+      view.value = 'edit-job';
+    }
+
+    function editJob(job) {
+      editingJob.value = { ...job };
+      selectedJob.value = job;
+      view.value = 'edit-job';
+    }
+
+    async function cloneJob(job) {
+      editingJob.value = {
+        title: job.title + ' (Copy)',
+        type: job.type,
+        status: 'draft',
+        description: job.description,
+        employer_name: job.employer_name,
+        employer_email: job.employer_email,
+        expiry_date: ''
+      };
+      view.value = 'edit-job';
+    }
+
+    async function saveJob() {
+      savingJob.value = true;
+      jobSaveError.value = '';
+      try {
+        const payload = {
+          title: editingJob.value.title,
+          type: editingJob.value.type,
+          status: editingJob.value.status,
+          description: editingJob.value.description,
+          employer_name: editingJob.value.employer_name,
+          employer_email: editingJob.value.employer_email,
+          expiry_date: editingJob.value.expiry_date || null
+        };
+
+        if (editingJob.value.id) {
+          const { error } = await sb.from('jobs').update(payload).eq('id', editingJob.value.id);
+          if (error) throw error;
+        } else {
+          const { data, error } = await sb.from('jobs').insert(payload).select().single();
+          if (error) throw error;
+          editingJob.value.id = data.id;
+          selectedJob.value = data;
+        }
+
+        await loadDashboard();
+        view.value = 'job-detail';
+        await loadApplicants(editingJob.value.id);
+      } catch (err) {
+        jobSaveError.value = 'Error saving job: ' + err.message;
+      } finally {
+        savingJob.value = false;
+      }
+    }
+
+    // ============ APPLICANT MANAGEMENT ============
+    function openApplicant(app) {
+      selectedApplicant.value = { ...app };
+      noteText.value = app.interview_notes_employer || '';
+      resumePreviewHtml.value = null;
+      view.value = 'applicant-detail';
+    }
+
+    async function updateStatus(app) {
+      await sb.from('applications').update({ status: app.status }).eq('id', app.id);
+    }
+
+    async function saveNote() {
+      savingNote.value = true;
+      try {
+        await sb.from('applications').update({ interview_notes: noteText.value }).eq('id', selectedApplicant.value.id);
+        selectedApplicant.value.interview_notes = noteText.value;
+      } finally {
+        savingNote.value = false;
+      }
+    }
+
+    // ============ RESUME VIEWER ============
+    async function viewResume(app) {
+      const filename = app.resume_filename || app.resume_url;
+      if (!filename) return;
+
+      const ext = (app.resume_filename || '').split('.').pop().toLowerCase();
+      const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(app.resume_url, 3600);
+      if (!data?.signedUrl) return;
+
+      if (ext === 'pdf') {
+        resumeModalContent.value = data.signedUrl;
+        resumeModalType.value = 'pdf';
+        resumeModalFilename.value = app.resume_filename;
+        showResumeModal.value = true;
+      } else if (ext === 'docx' || ext === 'doc') {
+        resumeModalType.value = 'docx';
+        resumeModalFilename.value = app.resume_filename;
+        showResumeModal.value = true;
+        // Fetch and convert
+        const resp = await fetch(data.signedUrl);
+        const arrayBuffer = await resp.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        resumeModalContent.value = result.value;
+      }
+    }
+
+    async function loadResumePreview(app) {
+      loadingResume.value = true;
+      try {
+        const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(app.resume_url, 3600);
+        if (!data?.signedUrl) return;
+        const ext = (app.resume_filename || '').split('.').pop().toLowerCase();
+        if (ext === 'docx' || ext === 'doc') {
+          const resp = await fetch(data.signedUrl);
+          const arrayBuffer = await resp.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          resumePreviewHtml.value = result.value;
+        }
+      } finally {
+        loadingResume.value = false;
+      }
+    }
+
+    // ============ INTERVIEW INVITES ============
+    async function sendInterviewInvites() {
+      if (!selectedForInterview.value.length) return;
+      sendingInvites.value = true;
+      try {
+        for (const app of selectedForInterview.value) {
+          await sendSingleInterviewInvite(app);
+        }
+      } finally {
+        sendingInvites.value = false;
+      }
+    }
+
+    async function sendSingleInterviewInvite(app) {
+      const interviewLink = `${BASE_URL}/interview.html?token=${app.interview_token}`;
+      try {
+        await fetch('/.netlify/functions/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'interview_invite',
+            applicantName: app.full_name,
+            applicantEmail: app.email,
+            jobTitle: selectedJob.value.title,
+            jobType: selectedJob.value.type,
+            jobDescription: selectedJob.value.description,
+            interviewLink,
+            employerName: selectedJob.value.employer_name,
+            companyHistory: settings.value.company_history,
+            companyBenefits: settings.value.company_benefits
+          })
+        });
+        await sb.from('applications').update({
+          interview_invite_sent: true,
+          interview_invite_sent_at: new Date().toISOString()
+        }).eq('id', app.id);
+        app.interview_invite_sent = true;
+      } catch (err) {
+        console.error('Failed to send invite for', app.email, err);
+      }
+    }
+
+    async function sendBulkRejection() {
+      const toReject = notSuitableSelected.value;
+      if (!toReject.length) return;
+      if (!confirm(`Send rejection emails to ${toReject.length} applicant(s)?`)) return;
+
+      try {
+        await fetch('/.netlify/functions/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'bulk_rejection',
+            applicants: toReject,
+            jobTitle: selectedJob.value.title
+          })
+        });
+
+        // Mark as sent
+        for (const app of toReject) {
+          await sb.from('applications').update({ rejection_sent: true, rejection_sent_at: new Date().toISOString() }).eq('id', app.id);
+          app.rejection_sent = true;
+        }
+      } catch (err) {
+        alert('Error sending rejections: ' + err.message);
+      }
+    }
+
+    // ============ INTERVIEW SLOTS ============
+    async function openInterviewSlots() {
+      await loadSlots();
+      showSlotsModal.value = true;
+    }
+
+    async function loadSlots() {
+      const { data } = await sb.from('interview_slots').select('*').eq('job_id', selectedJob.value.id).order('slot_time');
+      jobSlots.value = data || [];
+    }
+
+    async function addSlot() {
+      if (!newSlotTime.value) return;
+      addingSlot.value = true;
+      try {
+        await sb.from('interview_slots').insert({ job_id: selectedJob.value.id, slot_time: new Date(newSlotTime.value).toISOString() });
+        newSlotTime.value = '';
+        await loadSlots();
+      } finally {
+        addingSlot.value = false;
+      }
+    }
+
+    async function deleteSlot(slot) {
+      await sb.from('interview_slots').delete().eq('id', slot.id);
+      await loadSlots();
+    }
+
+    function getSlotTime(slotId) {
+      const slot = jobSlots.value.find(s => s.id === slotId);
+      return slot ? formatSlotFull(slot.slot_time) : '—';
+    }
+
+    // ============ SETTINGS ============
+    async function saveSettings(keys) {
+      savingSettings.value = true;
+      try {
+        for (const key of keys) {
+          await sb.from('settings').upsert({ key, value: settingsForm.value[key] }, { onConflict: 'key' });
+          settings.value[key] = settingsForm.value[key];
+        }
+      } finally {
+        savingSettings.value = false;
+      }
+    }
+
+    async function saveAllEmailTemplates() {
+      const keys = emailTemplates.flatMap(t => [t.key, t.subjectKey]);
+      await saveSettings(keys);
+    }
+
+    // ============ GALLERY ============
+    async function uploadGalleryPhotos(event) {
+      const files = Array.from(event.target.files);
+      uploadingPhoto.value = true;
+      try {
+        for (const file of files) {
+          const ext = file.name.split('.').pop();
+          const filename = `${Date.now()}-${Math.random().toString(36).substr(2,9)}.${ext}`;
+          const { error } = await sb.storage.from('jobs-gallery').upload(filename, file);
+          if (!error) {
+            const { data } = sb.storage.from('jobs-gallery').getPublicUrl(filename);
+            await sb.from('gallery_photos').insert({ url: data.publicUrl, filename });
+          }
+        }
+        const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
+        galleryPhotos.value = photos || [];
+      } finally {
+        uploadingPhoto.value = false;
+      }
+    }
+
+    async function handleGalleryDrop(event) {
+      event.currentTarget.classList.remove('dragover');
+      const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (files.length) {
+        uploadingPhoto.value = true;
+        for (const file of files) {
+          const ext = file.name.split('.').pop();
+          const filename = `${Date.now()}-${Math.random().toString(36).substr(2,9)}.${ext}`;
+          const { error } = await sb.storage.from('jobs-gallery').upload(filename, file);
+          if (!error) {
+            const { data } = sb.storage.from('jobs-gallery').getPublicUrl(filename);
+            await sb.from('gallery_photos').insert({ url: data.publicUrl, filename });
+          }
+        }
+        const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
+        galleryPhotos.value = photos || [];
+        uploadingPhoto.value = false;
+      }
+    }
+
+    async function deleteGalleryPhoto(photo) {
+      if (!confirm('Delete this photo?')) return;
+      await sb.storage.from('jobs-gallery').remove([photo.filename]);
+      await sb.from('gallery_photos').delete().eq('id', photo.id);
+      galleryPhotos.value = galleryPhotos.value.filter(p => p.id !== photo.id);
+    }
+
+    // ============ EXPORT ============
+    function exportCSV() {
+      const cols = ['Name', 'Email', 'Phone', 'Location', 'Status', 'Applied', 'Suitability', 'Human Score', 'Referral', 'Visa'];
+      const rows = filteredApplicants.value.map(a => [
+        a.full_name, a.email, a.phone, a.location,
+        a.status, a.created_at, a.suitability_score, a.ai_score,
+        a.referral_source, a.on_visa ? 'Yes - ' + a.visa_type : 'No'
+      ]);
+      const csv = [cols, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${selectedJob.value.title}-applicants.csv`; a.click();
+    }
+
+    function copyJobLink(job) {
+      const link = `${BASE_URL}/job.html?id=${job.id}`;
+      navigator.clipboard.writeText(link);
+      copiedLink.value = true;
+      setTimeout(() => copiedLink.value = false, 2000);
+    }
+
+    // ============ HELPERS ============
+    function formatType(type) {
+      const map = { full_time: 'Full Time', part_time: 'Part Time', casual: 'Casual', fixed_term: 'Fixed Term' };
+      return map[type] || type;
+    }
+
+    function formatReferral(source) {
+      const map = { seek: 'Seek', facebook: 'Facebook', friend: 'Friend', backpacker_board: 'Backpacker Board', sis: 'SIS', not_sure: 'Not Sure', other: 'Other' };
+      return map[source] || source || '—';
+    }
+
+    function daysAgo(dateStr) {
+      return Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
+    }
+
+    function timeAgo(dateStr) {
+      const diff = daysAgo(dateStr);
+      if (diff === 0) return 'today';
+      if (diff === 1) return '1 day ago';
+      if (diff < 7) return diff + ' days ago';
+      if (diff < 30) return Math.floor(diff/7) + ' weeks ago';
+      return Math.floor(diff/30) + ' months ago';
+    }
+
+    function formatFullDate(dateStr) {
+      if (!dateStr) return '—';
+      return new Date(dateStr).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatSlotFull(dateStr) {
+      return new Date(dateStr).toLocaleString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
+    function scoreColor(score) {
+      if (!score) return '#9ca3af';
+      if (score >= 8) return '#16a34a';
+      if (score >= 6) return '#40d134';
+      if (score >= 4) return '#f59e0b';
+      return '#ef4444';
+    }
+
+    function aiScoreColor(score) {
+      if (!score) return '#9ca3af';
+      if (score >= 8) return '#16a34a';
+      if (score >= 6) return '#40d134';
+      if (score >= 4) return '#f59e0b';
+      return '#ef4444';
+    }
+
+    function scoreStyle(score) {
+      const c = scoreColor(score);
+      return { background: c + '20', color: c };
+    }
+
+    function aiScoreStyle(score) {
+      const c = aiScoreColor(score);
+      return { background: c + '20', color: c };
+    }
+
+    function statusSelectClass(status) {
+      const map = {
+        new: 'border-blue-300 text-blue-700',
+        not_suitable: 'border-red-300 text-red-700',
+        shortlist_a: 'border-purple-300 text-purple-700',
+        shortlist_b: 'border-indigo-300 text-indigo-700',
+        interview: 'border-yellow-300 text-yellow-700',
+        hired: 'border-green-400 text-green-700',
+        not_hired: 'border-gray-300 text-gray-500'
+      };
+      return map[status] || '';
+    }
+
+    onMounted(checkSession);
+
+    return {
+      loggedIn, loginEmail, loginPassword, loginError, loggingIn,
+      view, settingsTab, settingsTabs, emailTemplates,
+      jobs, applications, galleryPhotos, settings, jobSlots, referralStats,
+      selectedJob, selectedApplicant, editingJob,
+      jobFilter, statusFilter, applicantSearch,
+      loadingApplicants, savingJob, savingNote, savingSettings, sendingInvites, uploadingPhoto, addingSlot,
+      copiedLink, showSlotsModal, showResumeModal,
+      resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
+      noteText, settingsForm, newSlotTime, jobSaveError,
+      filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
+      login, logout, openJob, editJob, cloneJob, startNewJob, saveJob,
+      openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
+      sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection,
+      openInterviewSlots, addSlot, deleteSlot, getSlotTime,
+      saveSettings, saveAllEmailTemplates,
+      uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
+      exportCSV, copyJobLink,
+      formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
+      scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
