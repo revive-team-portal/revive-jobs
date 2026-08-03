@@ -4,231 +4,188 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Work at Revive Cafe — Jobs</title>
-  <meta name="description" content="Join the Revive Cafe team! View current job openings at Auckland's favourite healthy vegan cafe.">
+  <meta name="description" content="Join the Revive Cafe team. View current job openings at Auckland's favourite healthy vegan cafe.">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: '#40d134',
-            'brand-dark': '#2b9622',
-            'brand-light': '#b5edb1',
-            'brand-pale': '#f0fdf0',
-            yellow: '#f7ff19',
-            error: '#e32e00',
-          },
-          fontFamily: {
-            sans: ['Open Sans', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
   <style>
-    .hero-photo { transition: opacity 0.5s ease; }
-    .job-card:hover { transform: translateY(-2px); }
-    .job-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-    .fade-in { animation: fadeIn 0.6s ease forwards; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
-    .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Open Sans', sans-serif; background: #fff; color: #000; font-size: 15px; line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+
+    /* Nav */
+    nav { border-bottom: 1px solid #e5e5e5; background: #fff; position: sticky; top: 0; z-index: 50; }
+    .nav-inner { max-width: 860px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; }
+    .nav-logo img { height: 38px; }
+    .nav-title { font-weight: 700; font-size: 15px; }
+    .nav-sub { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
+    .btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 10px 22px; border-radius: 4px; transition: background 0.15s; cursor: pointer; border: none; }
+    .btn:hover { background: #2b9622; }
+    .btn-outline { background: #fff; color: #000; border: 1.5px solid #000; }
+    .btn-outline:hover { background: #f5f5f5; }
+
+    /* Hero */
+    .hero { padding: 64px 24px 56px; text-align: center; border-bottom: 1px solid #e5e5e5; background: #fff; }
+    .hero h1 { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 14px; }
+    .hero p { font-size: 16px; color: #444; max-width: 500px; margin: 0 auto 28px; }
+    .hero-badge { display: inline-block; background: #f7ff19; color: #000; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 20px; }
+
+    /* Section */
+    .section { max-width: 860px; margin: 0 auto; padding: 56px 24px; }
+    .section-title { font-size: 20px; font-weight: 800; margin-bottom: 28px; padding-bottom: 14px; border-bottom: 2px solid #40d134; display: inline-block; }
+
+    /* About strip */
+    .about-strip { background: #f9f9f9; border-top: 1px solid #e5e5e5; border-bottom: 1px solid #e5e5e5; }
+    .about-text { color: #444; line-height: 1.75; white-space: pre-line; font-size: 15px; }
+
+    /* Benefits */
+    .benefits-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .benefits-grid { grid-template-columns: 1fr; } }
+    .benefit-item { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border: 1px solid #e5e5e5; border-radius: 4px; font-size: 14px; color: #333; }
+    .benefit-check { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: #40d134; }
+
+    /* Jobs */
+    .jobs-section { border-top: 1px solid #e5e5e5; }
+    .job-count { font-size: 13px; color: #666; margin-bottom: 24px; }
+    .job-card { display: block; border: 1px solid #e5e5e5; border-radius: 4px; padding: 22px 24px; margin-bottom: 12px; transition: border-color 0.15s, box-shadow 0.15s; }
+    .job-card:hover { border-color: #40d134; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .job-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .job-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .job-title:hover { color: #40d134; }
+    .job-desc { font-size: 13px; color: #555; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .job-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .tag { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 2px; }
+    .tag-pt { background: #e8f5e9; color: #2e7d32; }
+    .tag-ft { background: #e8f5e9; color: #2e7d32; }
+    .tag-casual { background: #f3e5f5; color: #6a1b9a; }
+    .tag-new { background: #f7ff19; color: #000; }
+    .job-meta { font-size: 12px; color: #999; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0; }
+    .job-arrow { flex-shrink: 0; width: 32px; height: 32px; border: 1.5px solid #e5e5e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #999; transition: all 0.15s; margin-top: 2px; }
+    .job-card:hover .job-arrow { border-color: #40d134; color: #40d134; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 56px 24px; color: #666; border: 2px dashed #e5e5e5; border-radius: 4px; }
+    .empty h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #333; }
+
+    /* Skeleton */
+    .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
     @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    /* Footer */
+    footer { border-top: 1px solid #e5e5e5; padding: 40px 24px; text-align: center; }
+    footer img { height: 36px; margin-bottom: 14px; }
+    footer p { font-size: 13px; color: #666; }
+    footer a { color: #40d134; }
+    footer a:hover { text-decoration: underline; }
+    .footer-copy { margin-top: 20px; font-size: 12px; color: #bbb; }
   </style>
 </head>
-<body class="bg-white font-sans">
+<body>
 
 <div id="app">
 
-  <!-- Announcement Bar -->
-  <div style="background:#f7ff19;" class="text-center py-2 px-4 text-sm font-semibold text-black">
-    🌱 We're hiring! Scroll down to see all current opportunities at Revive Cafe.
-  </div>
-
-  <!-- Navigation -->
-  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a href="https://www.revive.co.nz" target="_blank" class="flex items-center gap-3">
-        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-10">
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="https://www.revive.co.nz" target="_blank" class="nav-logo">
+        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe">
         <div>
-          <div class="font-bold text-gray-900 text-lg leading-tight">Revive Cafe</div>
-          <div class="text-xs text-gray-500 font-medium tracking-wider uppercase">Careers</div>
+          <div class="nav-title">Revive Cafe</div>
+          <div class="nav-sub">Careers</div>
         </div>
       </a>
-      <div class="flex items-center gap-4">
-        <a href="https://www.revive.co.nz" target="_blank" class="text-sm text-gray-600 hover:text-brand font-medium transition-colors">Visit Website</a>
-        <a href="#jobs" class="bg-brand hover:bg-brand-dark text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors">View Jobs</a>
-      </div>
+      <a href="#jobs" class="btn">View Jobs</a>
     </div>
   </nav>
 
-  <!-- Hero Section with Photo Gallery -->
-  <section class="relative bg-gray-900 overflow-hidden" style="height:480px;">
-    <!-- Photos grid -->
-    <div v-if="galleryPhotos.length > 0" class="absolute inset-0 grid grid-cols-3 gap-0.5">
-      <div v-for="(photo, i) in displayPhotos" :key="photo.id" class="overflow-hidden">
-        <img :src="photo.url" :alt="'Revive Cafe ' + (i+1)"
-          class="w-full h-full object-cover hover:scale-105 transition-transform duration-700">
-      </div>
-    </div>
-    <!-- Fallback gradient if no photos -->
-    <div v-else class="absolute inset-0" style="background: linear-gradient(135deg, #40d134 0%, #2b9622 50%, #1a5e15 100%);"></div>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">Now Hiring</div>
+    <h1>Join the Revive Cafe Team</h1>
+    <p>Be part of Auckland's favourite healthy food cafe. Real food. Real people. Real purpose.</p>
+    <a href="#jobs" class="btn">See Open Positions</a>
+  </div>
 
-    <!-- Overlay -->
-    <div class="absolute inset-0" style="background:rgba(0,0,0,0.55);"></div>
-
-    <!-- Hero Text -->
-    <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-      <div class="inline-block bg-brand text-white text-xs font-bold px-3 py-1 rounded-full mb-4 tracking-widest uppercase">
-        Now Hiring
-      </div>
-      <h1 class="text-white text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
-        Join the Revive Cafe Family
-      </h1>
-      <p class="text-white/90 text-lg md:text-xl max-w-xl mb-8 font-medium">
-        Be part of Auckland's favourite healthy food team. Real food. Real people. Real purpose.
-      </p>
-      <a href="#jobs" class="bg-brand hover:bg-brand-dark text-white px-8 py-3 rounded-lg font-bold text-lg transition-colors shadow-lg">
-        See Open Positions ↓
-      </a>
-    </div>
-  </section>
-
-  <!-- Stats Bar -->
-  <div class="bg-brand">
-    <div class="max-w-6xl mx-auto px-4 py-4 grid grid-cols-3 gap-4 text-center">
-      <div>
-        <div class="text-white font-extrabold text-2xl">{{ activeJobCount }}</div>
-        <div class="text-white/80 text-xs font-semibold uppercase tracking-wider">Open Roles</div>
-      </div>
-      <div>
-        <div class="text-white font-extrabold text-2xl">17+</div>
-        <div class="text-white/80 text-xs font-semibold uppercase tracking-wider">Years in Business</div>
-      </div>
-      <div>
-        <div class="text-white font-extrabold text-2xl">★ 4.8</div>
-        <div class="text-white/80 text-xs font-semibold uppercase tracking-wider">Team Rating</div>
+  <!-- About -->
+  <div class="about-strip">
+    <div class="section">
+      <div class="section-title">Our Story</div>
+      <div v-if="settings.company_history" class="about-text">{{ settings.company_history }}</div>
+      <div v-else>
+        <div class="skeleton" style="height:16px;margin-bottom:10px;"></div>
+        <div class="skeleton" style="height:16px;width:85%;margin-bottom:10px;"></div>
+        <div class="skeleton" style="height:16px;width:70%;"></div>
       </div>
     </div>
   </div>
 
-  <!-- Company History -->
-  <section class="py-16 px-4 bg-white">
-    <div class="max-w-4xl mx-auto">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-1 h-8 bg-brand rounded-full"></div>
-        <h2 class="text-2xl font-extrabold text-gray-900">Our Story</h2>
-      </div>
-      <div v-if="settings.company_history" class="text-gray-600 leading-relaxed whitespace-pre-line text-base">
-        {{ settings.company_history }}
-      </div>
-      <div v-else class="space-y-3">
-        <div class="skeleton h-4 rounded w-full"></div>
-        <div class="skeleton h-4 rounded w-5/6"></div>
-        <div class="skeleton h-4 rounded w-4/6"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Benefits Section -->
-  <section class="py-16 px-4 bg-gray-50">
-    <div class="max-w-4xl mx-auto">
-      <div class="flex items-center gap-3 mb-8">
-        <div class="w-1 h-8 bg-brand rounded-full"></div>
-        <h2 class="text-2xl font-extrabold text-gray-900">Why Work at Revive?</h2>
-      </div>
-      <div v-if="benefits.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div v-for="(benefit, i) in benefits" :key="i"
-          class="flex items-start gap-3 bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-          <div class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5"
-            style="background:#f0fdf0;">
-            <svg class="w-4 h-4" style="color:#40d134;" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-            </svg>
-          </div>
-          <span class="text-gray-700 font-medium text-sm leading-relaxed">{{ benefit }}</span>
+  <!-- Benefits -->
+  <div v-if="benefits.length > 0">
+    <div class="section">
+      <div class="section-title">Why Work Here?</div>
+      <div class="benefits-grid">
+        <div v-for="(b, i) in benefits" :key="i" class="benefit-item">
+          <svg class="benefit-check" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span>{{ b }}</span>
         </div>
       </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div v-for="i in 6" :key="i" class="skeleton h-14 rounded-lg"></div>
-      </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Jobs Listing -->
-  <section id="jobs" class="py-16 px-4 bg-white">
-    <div class="max-w-4xl mx-auto">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-1 h-8 bg-brand rounded-full"></div>
-        <h2 class="text-2xl font-extrabold text-gray-900">Current Openings</h2>
-      </div>
-      <p class="text-gray-500 mb-8 ml-4 text-sm">{{ activeJobCount }} position{{ activeJobCount !== 1 ? 's' : '' }} available right now</p>
+  <!-- Jobs -->
+  <div class="jobs-section" id="jobs">
+    <div class="section">
+      <div class="section-title">Current Openings</div>
+      <p class="job-count">{{ activeJobCount }} position{{ activeJobCount !== 1 ? 's' : '' }} available</p>
 
-      <!-- Loading state -->
-      <div v-if="loading" class="space-y-4">
-        <div v-for="i in 3" :key="i" class="skeleton h-32 rounded-xl"></div>
+      <!-- Loading -->
+      <div v-if="loading">
+        <div class="skeleton" style="height:100px;margin-bottom:12px;"></div>
+        <div class="skeleton" style="height:100px;margin-bottom:12px;"></div>
       </div>
 
       <!-- No jobs -->
-      <div v-else-if="jobs.length === 0" class="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-        <div class="text-5xl mb-4">🌱</div>
-        <h3 class="text-lg font-bold text-gray-700 mb-2">No positions available right now</h3>
-        <p class="text-gray-500 text-sm">Check back soon — we hire regularly!</p>
+      <div v-else-if="jobs.length === 0" class="empty">
+        <h3>No positions available right now</h3>
+        <p>Check back soon — we hire regularly!</p>
       </div>
 
-      <!-- Job cards -->
-      <div v-else class="space-y-4">
+      <!-- Cards -->
+      <div v-else>
         <a v-for="job in jobs" :key="job.id"
           :href="'job.html?id=' + job.id"
-          class="job-card block bg-white border border-gray-200 rounded-xl p-6 hover:border-brand hover:shadow-lg no-underline group"
-          @click="trackView(job.id)">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <span class="text-xs font-bold px-2.5 py-1 rounded-full"
-                  :class="typeClass(job.type)">
-                  {{ formatType(job.type) }}
-                </span>
-                <span v-if="isNew(job.created_at)" class="text-xs font-bold px-2.5 py-1 rounded-full"
-                  style="background:#f7ff19;color:#000;">
-                  NEW
-                </span>
+          class="job-card"
+          @click.capture="trackView(job.id)">
+          <div class="job-header">
+            <div style="flex:1;">
+              <div class="job-tags">
+                <span class="tag" :class="typeTagClass(job.type)">{{ formatType(job.type) }}</span>
+                <span v-if="isNew(job.created_at)" class="tag tag-new">NEW</span>
               </div>
-              <h3 class="text-xl font-extrabold text-gray-900 group-hover:text-brand transition-colors mb-2">
-                {{ job.title }}
-              </h3>
-              <p class="text-gray-500 text-sm leading-relaxed line-clamp-2">
-                {{ stripHtml(job.description) }}
-              </p>
+              <div class="job-title">{{ job.title }}</div>
+              <div class="job-desc">{{ stripHtml(job.description) }}</div>
             </div>
-            <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-pale group-hover:bg-brand transition-colors">
-              <svg class="w-5 h-5 text-brand group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            <div class="job-arrow">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
               </svg>
             </div>
           </div>
-          <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400 font-medium">
-            <span>📅 Posted {{ timeAgo(job.created_at) }}</span>
-            <span v-if="job.expiry_date">⏰ Closes {{ formatDate(job.expiry_date) }}</span>
+          <div class="job-meta">
+            Posted {{ timeAgo(job.created_at) }}
+            <span v-if="job.expiry_date"> · Closes {{ formatDate(job.expiry_date) }}</span>
           </div>
         </a>
       </div>
     </div>
-  </section>
+  </div>
 
   <!-- Footer -->
-  <footer class="bg-gray-900 text-white py-12 px-4">
-    <div class="max-w-4xl mx-auto text-center">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-10 mx-auto mb-4 opacity-90">
-      <p class="text-gray-400 text-sm mb-2">Healthy. Delicious. Plant-based.</p>
-      <p class="text-gray-500 text-xs">
-        Questions? Email us at
-        <a href="mailto:jobs@revivealicious.com" style="color:#40d134;" class="hover:underline">jobs@revivealicious.com</a>
-      </p>
-      <div class="mt-6 pt-6 border-t border-gray-800 text-gray-600 text-xs">
-        © {{ new Date().getFullYear() }} Revive Cafe. All rights reserved.
-      </div>
-    </div>
+  <footer>
+    <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe">
+    <p>Questions? <a href="mailto:jobs@revivealicious.com">jobs@revivealicious.com</a></p>
+    <div class="footer-copy">© {{ new Date().getFullYear() }} Revive Cafe</div>
   </footer>
 
 </div>
@@ -246,7 +203,6 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'jobs' } });
 createApp({
   setup() {
     const jobs = ref([]);
-    const galleryPhotos = ref([]);
     const settings = ref({});
     const loading = ref(true);
 
@@ -257,20 +213,9 @@ createApp({
 
     const activeJobCount = computed(() => jobs.value.length);
 
-    const displayPhotos = computed(() => {
-      const photos = [...galleryPhotos.value];
-      // Shuffle for random display
-      for (let i = photos.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [photos[i], photos[j]] = [photos[j], photos[i]];
-      }
-      return photos.slice(0, 6);
-    });
-
     async function loadData() {
       loading.value = true;
       try {
-        // Load active jobs
         const { data: jobsData } = await sb
           .from('jobs')
           .select('id, title, type, description, created_at, expiry_date')
@@ -278,56 +223,33 @@ createApp({
           .order('created_at', { ascending: false });
         jobs.value = jobsData || [];
 
-        // Load settings
         const { data: settingsData } = await sb.from('settings').select('key, value');
-        if (settingsData) {
-          settingsData.forEach(s => { settings.value[s.key] = s.value; });
-        }
-
-        // Load gallery photos
-        const { data: photos } = await sb
-          .from('gallery_photos')
-          .select('id, url')
-          .order('created_at', { ascending: false });
-        galleryPhotos.value = photos || [];
-
+        if (settingsData) settingsData.forEach(s => { settings.value[s.key] = s.value; });
       } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('Error:', err);
       } finally {
         loading.value = false;
       }
     }
 
     async function trackView(jobId) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const ref = urlParams.get('ref') || null;
-      await sb.from('job_views').insert({ job_id: jobId, referral_source: ref });
+      try { await sb.from('job_views').insert({ job_id: jobId }); } catch {}
     }
 
     function formatType(type) {
-      const map = { full_time: 'Full Time', part_time: 'Part Time', casual: 'Casual', fixed_term: 'Fixed Term' };
-      return map[type] || type;
+      return { full_time: 'Full Time', part_time: 'Part Time', casual: 'Casual', fixed_term: 'Fixed Term' }[type] || type;
     }
 
-    function typeClass(type) {
-      const map = {
-        full_time: 'bg-green-100 text-green-800',
-        part_time: 'bg-blue-100 text-blue-800',
-        casual: 'bg-purple-100 text-purple-800',
-        fixed_term: 'bg-orange-100 text-orange-800'
-      };
-      return map[type] || 'bg-gray-100 text-gray-700';
+    function typeTagClass(type) {
+      return { full_time: 'tag-ft', part_time: 'tag-pt', casual: 'tag-casual', fixed_term: 'tag-pt' }[type] || '';
     }
 
     function isNew(dateStr) {
-      const created = new Date(dateStr);
-      const diff = (new Date() - created) / (1000 * 60 * 60 * 24);
-      return diff < 7;
+      return (new Date() - new Date(dateStr)) < 7 * 24 * 60 * 60 * 1000;
     }
 
     function timeAgo(dateStr) {
-      const d = new Date(dateStr);
-      const diff = Math.floor((new Date() - d) / (1000 * 60 * 60 * 24));
+      const diff = Math.floor((new Date() - new Date(dateStr)) / 86400000);
       if (diff === 0) return 'today';
       if (diff === 1) return '1 day ago';
       if (diff < 7) return diff + ' days ago';
@@ -336,22 +258,17 @@ createApp({
     }
 
     function formatDate(dateStr) {
-      if (!dateStr) return '';
       return new Date(dateStr).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
     function stripHtml(html) {
-      if (!html) return '';
-      return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 200);
+      return (html || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 180);
     }
 
     onMounted(loadData);
 
-    return {
-      jobs, galleryPhotos, settings, loading,
-      benefits, activeJobCount, displayPhotos,
-      trackView, formatType, typeClass, isNew, timeAgo, formatDate, stripHtml
-    };
+    return { jobs, settings, loading, benefits, activeJobCount,
+      trackView, formatType, typeTagClass, isNew, timeAgo, formatDate, stripHtml };
   }
 }).mount('#app');
 </script>
