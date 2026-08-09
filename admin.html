@@ -1356,7 +1356,28 @@ createApp({
       return map[status] || '';
     }
 
-    onMounted(checkSession);
+    onMounted(async () => {
+      const pt = new URLSearchParams(window.location.search).get("pt");
+      if (pt) {
+        try {
+          const res = await fetch("/.netlify/functions/portal-validate", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: pt })
+          });
+          if (res.ok) {
+            const { otp, email } = await res.json();
+            const { error } = await sb.auth.verifyOtp({ email, token: otp, type: "magiclink" });
+            if (!error) {
+              loggedIn.value = true;
+              window.history.replaceState({}, "", "/admin.html");
+              await loadDashboard();
+              return;
+            }
+          }
+        } catch(e) { console.warn("Portal SSO failed", e); }
+      }
+      checkSession();
+    });
 
     return {
       loggedIn, loginEmail, loginPassword, loginError, loggingIn,
