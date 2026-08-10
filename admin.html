@@ -1360,7 +1360,7 @@ createApp({
       const pt = new URLSearchParams(window.location.search).get("pt");
       if (pt) {
         try {
-          const res = await fetch("/.netlify/functions/portal-validate", {
+          const res = await fetch("https://team.revive.co.nz/.netlify/functions/portal-validate", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token: pt })
           });
