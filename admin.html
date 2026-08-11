@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Portal — Revive Cafe Jobs</title>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <style>
+    /* Quill overrides */
+    .ql-container { font-family: 'Open Sans', sans-serif; font-size: 14px; border-radius: 0 0 8px 8px; border-color: #d1d5db !important; min-height: 280px; }
+    .ql-toolbar { border-radius: 8px 8px 0 0; border-color: #d1d5db !important; background: #f9fafb; }
+    .ql-editor { min-height: 260px; }
+    .ql-editor:focus { outline: none; }
+    .ql-container.ql-snow:focus-within { border-color: #40d134 !important; box-shadow: 0 0 0 2px rgba(64,209,52,0.15); }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -171,8 +180,14 @@
           </div>
           <div class="flex gap-2 flex-shrink-0 flex-wrap justify-end">
             <button @click="copyJobLink(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-              {{ copiedLink ? '✓ Copied!' : '🔗 Copy Job Link' }}
+              {{ copiedLink ? '✓ Copied!' : '🔗 Copy Link' }}
             </button>
+            <a :href="selectedJob.code ? 'https://jobs.revive.co.nz/' + selectedJob.code : 'https://jobs.revive.co.nz/job.html?id=' + selectedJob.id"
+              target="_blank"
+              class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              View Live Job
+            </a>
             <button @click="editJob(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
               ✏️ Edit Job
             </button>
@@ -562,10 +577,8 @@
 
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Description <span class="text-red-500">*</span></label>
-              <p class="text-xs text-gray-400 mb-2">Supports basic HTML (bold, lists, headings). Full job details, requirements, responsibilities.</p>
-              <textarea v-model="editingJob.description" rows="14" required
-                placeholder="<h2>About the Role</h2>&#10;<p>We are looking for...</p>&#10;&#10;<h2>What you'll do</h2>&#10;<ul><li>...</li></ul>"
-                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+              <div id="job-description-editor"></div>
+              <input type="hidden" v-model="editingJob.description" required>
             </div>
 
             <!-- Application questions -->
@@ -784,9 +797,10 @@
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script>
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 const { createClient } = supabase;
 
 const SUPABASE_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
@@ -1034,6 +1048,8 @@ createApp({
     }
 
     async function saveJob() {
+      // Sync latest content from Quill
+      if (quillInstance) editingJob.value.description = quillInstance.root.innerHTML;
       savingJob.value = true;
       jobSaveError.value = '';
       try {
@@ -1318,7 +1334,7 @@ createApp({
     }
 
     function copyJobLink(job) {
-      const link = `${BASE_URL}/job.html?id=${job.id}`;
+      const link = job.code ? `${BASE_URL}/${job.code}` : `${BASE_URL}/job.html?id=${job.id}`;
       navigator.clipboard.writeText(link);
       copiedLink.value = true;
       setTimeout(() => copiedLink.value = false, 2000);
@@ -1419,6 +1435,36 @@ createApp({
       }
       ssoChecking.value = false;
       checkSession();
+    });
+
+    // ============ QUILL EDITOR ============
+    let quillInstance = null;
+
+    watch(() => view.value, async (newView) => {
+      if (newView === 'edit-job') {
+        await nextTick();
+        // Destroy previous instance if any
+        const el = document.getElementById('job-description-editor');
+        if (el) el.innerHTML = '';
+        quillInstance = new Quill('#job-description-editor', {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              [{ header: [2, 3, false] }],
+              ['bold', 'italic'],
+              [{ list: 'ordered' }, { list: 'bullet' }],
+              ['clean']
+            ]
+          },
+          placeholder: 'Write the job description here…'
+        });
+        if (editingJob.value.description) {
+          quillInstance.root.innerHTML = editingJob.value.description;
+        }
+        quillInstance.on('text-change', () => {
+          editingJob.value.description = quillInstance.root.innerHTML;
+        });
+      }
     });
 
     function addQuestion() {
