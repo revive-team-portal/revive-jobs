@@ -1421,6 +1421,13 @@ createApp({
       checkSession();
     });
 
+    function addQuestion() {
+      if (!editingJob.value.questions) editingJob.value.questions = [];
+      editingJob.value.questions.push('');
+    }
+    function removeQuestion(i) { editingJob.value.questions.splice(i, 1); }
+    function updateQuestion(i, val) { editingJob.value.questions[i] = val; }
+
     return {
       loggedIn, ssoChecking, loginEmail, loginPassword, loginError, loggingIn,
       view, settingsTab, settingsTabs, emailTemplates,
@@ -1432,13 +1439,6 @@ createApp({
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
-      function addQuestion() {
-        if (!editingJob.value.questions) editingJob.value.questions = [];
-        editingJob.value.questions.push('');
-      }
-      function removeQuestion(i) { editingJob.value.questions.splice(i, 1); }
-      function updateQuestion(i, val) { editingJob.value.questions[i] = val; }
-
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob,
       openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection,
