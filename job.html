@@ -11,98 +11,79 @@
     a { color: inherit; text-decoration: none; }
 
     nav { border-bottom: 1px solid #e0e0e0; background: #fff; position: sticky; top: 0; z-index: 50; }
-    .nav-inner { max-width: 820px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; }
-    .nav-logo { display: flex; align-items: center; gap: 10px; }
-    .nav-logo img { height: 34px; }
-    .nav-title { font-weight: 700; font-size: 14px; color: #1a1a1a; }
-    .nav-sub { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
+    .nav-inner { max-width: 680px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; }
+    .nav-logo img { height: 30px; }
+    .nav-back { font-size: 13px; color: #666; }
+    .nav-back:hover { color: #40d134; }
 
-    /* Photo strip */
-    .photo-strip { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3px; height: 340px; }
-    .photo-strip img { width: 100%; height: 100%; object-fit: cover; }
-    @media (max-width: 600px) {
-      .photo-strip { grid-template-columns: 1fr 1fr; height: 240px; }
-      .photo-strip img:last-child { display: none; }
-    }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px; }
 
-    /* Content */
-    .wrap { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+    /* Job header */
+    .job-header { padding: 36px 0 24px; }
+    .job-tag { display: inline-block; background: #f0faf0; color: #2a7d1e; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 12px; }
+    .job-title { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; color: #111; }
+    .job-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
+    .job-meta span { margin-right: 16px; }
 
-    .job-header { padding: 40px 0 32px; border-bottom: 1px solid #e0e0e0; }
-    .job-tag { display: inline-block; background: #f0faf0; color: #2a7d1e; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 14px; }
-    .job-title { font-size: 28px; font-weight: 800; line-height: 1.2; margin-bottom: 10px; color: #111; }
-    .job-meta { font-size: 13px; color: #777; }
-    .job-meta span { margin-right: 18px; }
+    /* Small photo squares */
+    .photo-row { display: flex; gap: 8px; margin-bottom: 28px; }
+    .photo-row img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 
-    .apply-btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 4px; cursor: pointer; border: none; transition: background 0.15s; }
+    /* Apply button */
+    .apply-btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 11px 26px; border-radius: 4px; cursor: pointer; border: none; transition: background 0.15s; }
     .apply-btn:hover { background: #2fa626; }
-    .apply-btn-wrap { padding: 28px 0; }
 
-    /* Two-col layout */
-    .layout { display: grid; grid-template-columns: 1fr 340px; gap: 48px; padding: 40px 0 64px; }
-    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+    /* Divider */
+    .divider { border: none; border-top: 1px solid #e8e8e8; margin: 32px 0; }
 
-    /* Description */
-    .job-desc h3 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; color: #111; }
+    /* Job description */
+    .job-desc h3 { font-size: 15px; font-weight: 700; margin: 24px 0 8px; color: #111; }
     .job-desc h3:first-child { margin-top: 0; }
-    .job-desc p { color: #444; margin-bottom: 14px; }
-    .job-desc ul { margin: 0 0 14px 20px; color: #444; }
-    .job-desc li { margin-bottom: 6px; }
-
-    /* Sidebar */
-    .sidebar {}
-    .sidebar-card { background: #f8f8f6; border-radius: 6px; padding: 22px; margin-bottom: 16px; }
-    .sidebar-card h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 14px; }
-    .sidebar-row { display: flex; justify-content: space-between; font-size: 14px; padding: 7px 0; border-bottom: 1px solid #eee; }
-    .sidebar-row:last-child { border-bottom: none; }
-    .sidebar-label { color: #888; }
-    .sidebar-value { font-weight: 600; color: #1a1a1a; }
+    .job-desc p { color: #444; margin-bottom: 12px; font-size: 14px; }
+    .job-desc ul { margin: 0 0 12px 18px; color: #444; }
+    .job-desc li { margin-bottom: 5px; font-size: 14px; }
 
     /* Application form */
-    .apply-section { border-top: 2px solid #40d134; padding-top: 40px; margin-top: 16px; }
-    .apply-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #111; }
-    .apply-section .subtitle { color: #666; font-size: 14px; margin-bottom: 32px; }
+    .apply-section { border-top: 2px solid #40d134; padding-top: 36px; margin-top: 40px; padding-bottom: 60px; }
+    .apply-section h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: #111; }
+    .apply-section .subtitle { color: #777; font-size: 13px; margin-bottom: 28px; }
 
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #333; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    @media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
     .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 10px 14px; border: 1.5px solid #ddd; border-radius: 4px;
+      width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 4px;
       font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fff;
       transition: border-color 0.15s;
     }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none; border-color: #40d134;
     }
-    .form-group textarea { resize: vertical; min-height: 100px; }
-    .form-group .hint { font-size: 12px; color: #999; margin-top: 4px; }
+    .form-group textarea { resize: vertical; min-height: 110px; }
 
     /* File upload */
-    .file-drop { border: 2px dashed #ddd; border-radius: 4px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
-    .file-drop:hover, .file-drop.over { border-color: #40d134; background: #f8fff8; }
-    .file-drop p { font-size: 13px; color: #888; margin-top: 6px; }
+    .file-drop { border: 1.5px dashed #ccc; border-radius: 4px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s; background: #fafafa; }
+    .file-drop:hover, .file-drop.over { border-color: #40d134; background: #f6fff6; }
+    .file-drop svg { color: #ccc; }
+    .file-drop p { font-size: 12px; color: #999; margin-top: 5px; }
     .file-name { font-size: 13px; color: #40d134; font-weight: 600; margin-top: 6px; }
     input[type=file] { display: none; }
 
-    .submit-wrap { margin-top: 28px; }
-    .submit-btn { background: #40d134; color: #fff; font-weight: 700; font-size: 15px; padding: 14px 36px; border: none; border-radius: 4px; cursor: pointer; width: 100%; transition: background 0.15s; }
+    .submit-wrap { margin-top: 24px; }
+    .submit-btn { background: #40d134; color: #fff; font-weight: 700; font-size: 15px; padding: 13px 32px; border: none; border-radius: 4px; cursor: pointer; width: 100%; transition: background 0.15s; }
     .submit-btn:hover:not(:disabled) { background: #2fa626; }
     .submit-btn:disabled { background: #a0d99b; cursor: not-allowed; }
-    .form-note { font-size: 12px; color: #999; margin-top: 10px; text-align: center; }
+    .form-note { font-size: 12px; color: #aaa; margin-top: 8px; text-align: center; }
 
     /* States */
-    .success-box { background: #f0faf0; border: 1px solid #b3e6b0; border-radius: 6px; padding: 28px; text-align: center; }
+    .success-box { background: #f0faf0; border: 1px solid #b3e6b0; border-radius: 6px; padding: 32px; text-align: center; margin-bottom: 60px; }
     .success-box h3 { color: #1e7a14; font-size: 18px; margin-bottom: 8px; }
-    .success-box p { color: #444; font-size: 14px; }
-    .error-box { background: #fff5f5; border: 1px solid #fcc; border-radius: 4px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; }
-    .loading { text-align: center; padding: 80px 24px; color: #888; }
+    .success-box p { color: #555; font-size: 14px; }
+    .error-box { background: #fff5f5; border: 1px solid #fcc; border-radius: 4px; padding: 10px 14px; font-size: 13px; color: #c00; margin-bottom: 14px; }
+    .loading { text-align: center; padding: 80px 24px; color: #aaa; font-size: 14px; }
     .not-found { text-align: center; padding: 80px 24px; }
-    .not-found h2 { font-size: 20px; color: #333; margin-bottom: 8px; }
-
-    footer { border-top: 1px solid #e0e0e0; padding: 36px 24px; text-align: center; }
-    footer img { height: 32px; margin-bottom: 10px; }
-    footer p { font-size: 13px; color: #999; }
+    .not-found h2 { font-size: 18px; color: #444; margin-bottom: 8px; }
   </style>
 </head>
 <body>
@@ -111,12 +92,8 @@
   <div class="nav-inner">
     <a href="/" class="nav-logo">
       <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe">
-      <div>
-        <div class="nav-title">Revive Cafe</div>
-        <div class="nav-sub">Careers</div>
-      </div>
     </a>
-    <a href="/" style="font-size:13px;color:#666;">← All jobs</a>
+    <a href="/" class="nav-back">← All jobs</a>
   </div>
 </nav>
 
@@ -125,159 +102,126 @@
 
   <div v-else-if="!job" class="not-found wrap">
     <h2>Job not found</h2>
-    <p><a href="/" style="color:#40d134;">View all open positions →</a></p>
+    <p style="font-size:14px;color:#888;margin-top:6px"><a href="/" style="color:#40d134;">View all open positions →</a></p>
   </div>
 
-  <div v-else>
-    <!-- Photo strip -->
-    <div class="photo-strip">
-      <img src="/images/cafe1.jpg" alt="Revive Cafe">
-      <img src="/images/cafe2.jpg" alt="Revive Cafe kitchen">
-      <img src="/images/cafe3.jpg" alt="Revive Cafe food">
+  <div v-else class="wrap">
+    <div class="job-header">
+      <div class="job-tag">{{ formatType(job.type) }}</div>
+      <h1 class="job-title">{{ job.title }}</h1>
+      <div class="job-meta">
+        <span>📍 Auckland CBD</span>
+        <span v-if="job.expiry_date">Closes {{ formatDate(job.expiry_date) }}</span>
+      </div>
+
+      <!-- Small photo squares -->
+      <div class="photo-row">
+        <img src="/images/cafe1.jpg" alt="Revive Cafe">
+        <img src="/images/cafe2.jpg" alt="Revive Cafe kitchen">
+        <img src="/images/cafe3.jpg" alt="Revive Cafe food">
+      </div>
+
+      <button class="apply-btn" @click="scrollToApply">Apply Now ↓</button>
     </div>
 
-    <div class="wrap">
-      <div class="job-header">
-        <div class="job-tag">{{ formatType(job.type) }}</div>
-        <h1 class="job-title">{{ job.title }}</h1>
-        <div class="job-meta">
-          <span>📍 Auckland CBD</span>
-          <span v-if="job.expiry_date">Closes {{ formatDate(job.expiry_date) }}</span>
-        </div>
-      </div>
+    <hr class="divider">
 
-      <div class="apply-btn-wrap">
-        <button class="apply-btn" @click="scrollToApply">Apply Now</button>
-      </div>
+    <!-- Job description -->
+    <div class="job-desc" v-html="job.description"></div>
 
-      <div class="layout">
-        <!-- Left: description -->
-        <div class="job-desc" v-html="job.description"></div>
+    <!-- Application form -->
+    <div class="apply-section" id="apply" v-if="!submitted">
+      <h2>Apply for this role</h2>
+      <p class="subtitle">Fill in your details below — takes about 2 minutes.</p>
 
-        <!-- Right: sidebar -->
-        <div class="sidebar">
-          <div class="sidebar-card">
-            <h4>Role Details</h4>
-            <div class="sidebar-row">
-              <span class="sidebar-label">Type</span>
-              <span class="sidebar-value">{{ formatType(job.type) }}</span>
-            </div>
-            <div class="sidebar-row">
-              <span class="sidebar-label">Location</span>
-              <span class="sidebar-value">Auckland CBD</span>
-            </div>
-            <div class="sidebar-row" v-if="job.expiry_date">
-              <span class="sidebar-label">Closes</span>
-              <span class="sidebar-value">{{ formatDate(job.expiry_date) }}</span>
-            </div>
+      <div v-if="formError" class="error-box">{{ formError }}</div>
+
+      <form @submit.prevent="submitApplication">
+        <div class="form-row">
+          <div class="form-group">
+            <label>First name *</label>
+            <input v-model="form.first_name" type="text" required placeholder="Jane">
           </div>
-          <div class="sidebar-card">
-            <h4>About Revive</h4>
-            <p style="font-size:13px;color:#555;line-height:1.6;">Auckland's favourite healthy food cafe. Real food, made fresh every day. A team that genuinely cares.</p>
-            <a href="https://www.revive.co.nz" target="_blank" style="font-size:13px;color:#40d134;font-weight:600;display:inline-block;margin-top:10px;">Visit our website →</a>
+          <div class="form-group">
+            <label>Last name *</label>
+            <input v-model="form.last_name" type="text" required placeholder="Smith">
           </div>
         </div>
-      </div>
 
-      <!-- Application form -->
-      <div class="apply-section" id="apply" v-if="!submitted">
-        <h2>Apply for this role</h2>
-        <p class="subtitle">Fill in your details below — it only takes a minute.</p>
-
-        <div v-if="formError" class="error-box">{{ formError }}</div>
-
-        <form @submit.prevent="submitApplication">
-          <div class="form-row">
-            <div class="form-group">
-              <label>First name *</label>
-              <input v-model="form.first_name" type="text" required placeholder="Jane">
-            </div>
-            <div class="form-group">
-              <label>Last name *</label>
-              <input v-model="form.last_name" type="text" required placeholder="Smith">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Email *</label>
-              <input v-model="form.email" type="email" required placeholder="jane@example.com">
-            </div>
-            <div class="form-group">
-              <label>Phone *</label>
-              <input v-model="form.phone" type="tel" required placeholder="021 123 4567">
-            </div>
-          </div>
-
+        <div class="form-row">
           <div class="form-group">
-            <label>Right to work in New Zealand? *</label>
-            <select v-model="form.work_rights" required>
-              <option value="">Select…</option>
-              <option value="citizen">NZ / Australian Citizen</option>
-              <option value="resident">NZ Permanent Resident</option>
-              <option value="work_visa">Work Visa (please mention in cover letter)</option>
-              <option value="student_visa">Student Visa</option>
-            </select>
+            <label>Email *</label>
+            <input v-model="form.email" type="email" required placeholder="jane@example.com">
           </div>
-
           <div class="form-group">
-            <label>How did you hear about us?</label>
-            <select v-model="form.referral_source">
-              <option value="">Select…</option>
-              <option value="seek">SEEK</option>
-              <option value="instagram">Instagram</option>
-              <option value="facebook">Facebook</option>
-              <option value="friend">Friend / Word of mouth</option>
-              <option value="walked_past">Walked past the cafe</option>
-              <option value="other">Other</option>
-            </select>
+            <label>Phone *</label>
+            <input v-model="form.phone" type="tel" required placeholder="021 123 4567">
           </div>
-
-          <div class="form-group">
-            <label>Tell us a bit about yourself *</label>
-            <textarea v-model="form.cover_letter" required placeholder="Why would you be a great fit for Revive? What experience do you have? What are you looking for in a role?"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>CV / Resume <span style="color:#999;font-weight:400;">(optional)</span></label>
-            <div class="file-drop" :class="{over: dragging}"
-              @click="$refs.fileInput.click()"
-              @dragover.prevent="dragging=true"
-              @dragleave="dragging=false"
-              @drop.prevent="handleDrop">
-              <svg width="28" height="28" fill="none" stroke="#ccc" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-              </svg>
-              <p>Click to upload or drag & drop</p>
-              <p>PDF, DOC, DOCX — max 5 MB</p>
-              <div v-if="form.resume" class="file-name">✓ {{ form.resume.name }}</div>
-            </div>
-            <input ref="fileInput" type="file" accept=".pdf,.doc,.docx" @change="handleFile">
-          </div>
-
-          <div class="submit-wrap">
-            <button type="submit" class="submit-btn" :disabled="submitting">
-              {{ submitting ? 'Sending…' : 'Submit Application' }}
-            </button>
-            <p class="form-note">We'll be in touch within a few days.</p>
-          </div>
-        </form>
-      </div>
-
-      <div v-if="submitted" class="apply-section">
-        <div class="success-box">
-          <h3>Application received! 🎉</h3>
-          <p>Thanks {{ form.first_name }} — we'll review your application and be in touch soon.</p>
         </div>
+
+        <div class="form-group">
+          <label>Right to work in New Zealand? *</label>
+          <select v-model="form.work_rights" required>
+            <option value="">Select…</option>
+            <option value="citizen">NZ / Australian Citizen</option>
+            <option value="resident">NZ Permanent Resident</option>
+            <option value="work_visa">Work Visa (please mention in your cover letter)</option>
+            <option value="student_visa">Student Visa</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>How did you hear about us?</label>
+          <select v-model="form.referral_source">
+            <option value="">Select…</option>
+            <option value="seek">SEEK</option>
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="friend">Friend / Word of mouth</option>
+            <option value="walked_past">Walked past the cafe</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Cover letter *</label>
+          <textarea v-model="form.cover_letter" required placeholder="Tell us about yourself and why you'd be a great fit. If the role lists specific questions, please answer them here."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>CV / Resume <span style="color:#bbb;font-weight:400;text-transform:none">(optional)</span></label>
+          <div class="file-drop" :class="{over: dragging}"
+            @click="$refs.fileInput.click()"
+            @dragover.prevent="dragging=true"
+            @dragleave="dragging=false"
+            @drop.prevent="handleDrop">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+            <p>Click to upload or drag & drop</p>
+            <p>PDF, DOC, DOCX — max 5 MB</p>
+            <div v-if="form.resume" class="file-name">✓ {{ form.resume.name }}</div>
+          </div>
+          <input ref="fileInput" type="file" accept=".pdf,.doc,.docx" @change="handleFile">
+        </div>
+
+        <div class="submit-wrap">
+          <button type="submit" class="submit-btn" :disabled="submitting">
+            {{ submitting ? 'Sending…' : 'Submit Application' }}
+          </button>
+          <p class="form-note">We'll be in touch within a few days.</p>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="submitted" class="apply-section">
+      <div class="success-box">
+        <h3>Application received!</h3>
+        <p>Thanks {{ form.first_name }} — we'll review your application and be in touch soon.</p>
       </div>
     </div>
   </div>
 </div>
-
-<footer>
-  <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe">
-  <p>© {{ new Date().getFullYear() }} Revive Cafe · <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a></p>
-</footer>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -339,14 +283,6 @@ createApp({
         };
         const { error } = await sb.from('applications').insert(payload);
         if (error) throw error;
-
-        // Send email notification
-        await fetch('/.netlify/functions/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'new_application', jobTitle: job.value.title,
-            applicantName: payload.name, applicantEmail: payload.email })
-        });
         submitted.value = true;
       } catch (e) {
         formError.value = 'Something went wrong — please try again or email jobs@revivealicious.com';
