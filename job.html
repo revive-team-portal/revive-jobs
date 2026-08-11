@@ -324,7 +324,9 @@ createApp({
       const code = params.get('code');
       const id = params.get('id');
       try {
-        let q = sb.from('jobs').select('*').eq('status', 'active');
+        const preview = params.get('preview') === '1';
+        let q = sb.from('jobs').select('*');
+        if (!preview) q = q.eq('status', 'active');
         if (code) q = q.eq('code', code);
         else if (id) q = q.eq('id', id);
         else { loading.value = false; return; }
