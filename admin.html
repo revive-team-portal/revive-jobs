@@ -39,7 +39,7 @@
 <div id="app" class="min-h-screen">
 
   <!-- ======== LOGIN ======== -->
-  <div v-if="!loggedIn" class="min-h-screen flex items-center justify-center px-4" style="background: linear-gradient(135deg, #f0fdf0 0%, #e8f5e9 100%);">
+  <div v-if="!loggedIn && !ssoChecking" class="min-h-screen flex items-center justify-center px-4" style="background: linear-gradient(135deg, #f0fdf0 0%, #e8f5e9 100%);">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-14 mx-auto mb-4">
@@ -767,6 +767,7 @@ createApp({
   setup() {
     // Auth
     const loggedIn = ref(false);
+    const ssoChecking = ref(true); // hide login until SSO attempt completes
     const loginEmail = ref('');
     const loginPassword = ref('');
     const loginError = ref('');
@@ -1368,6 +1369,7 @@ createApp({
             const { access_token, refresh_token } = await res.json();
             const { error } = await sb.auth.setSession({ access_token, refresh_token });
             if (!error) {
+              ssoChecking.value = false;
               loggedIn.value = true;
               window.history.replaceState({}, "", "/admin.html");
               await loadDashboard();
@@ -1376,11 +1378,12 @@ createApp({
           }
         } catch(e) { console.warn("Portal SSO failed", e); }
       }
+      ssoChecking.value = false;
       checkSession();
     });
 
     return {
-      loggedIn, loginEmail, loginPassword, loginError, loggingIn,
+      loggedIn, ssoChecking, loginEmail, loginPassword, loginError, loggingIn,
       view, settingsTab, settingsTabs, emailTemplates,
       jobs, applications, galleryPhotos, settings, jobSlots, referralStats,
       selectedJob, selectedApplicant, editingJob,
