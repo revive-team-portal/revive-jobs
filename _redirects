@@ -3,3 +3,5 @@
 /setup-db.sql  404
 /*.sql  404
 /*.toml  404
+
+/:code  /job.html?code=:code  200

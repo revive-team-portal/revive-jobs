@@ -38,35 +38,20 @@
 <body class="bg-gray-100 font-sans text-gray-800">
 <div id="app" class="min-h-screen">
 
-  <!-- ======== LOGIN ======== -->
-  <div v-if="!loggedIn && !ssoChecking" class="min-h-screen flex items-center justify-center px-4" style="background: linear-gradient(135deg, #f0fdf0 0%, #e8f5e9 100%);">
-    <div class="w-full max-w-md">
-      <div class="text-center mb-8">
-        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-14 mx-auto mb-4">
-        <h1 class="text-2xl font-extrabold text-gray-900">Employer Portal</h1>
-        <p class="text-gray-500 text-sm mt-1">Revive Cafe Jobs Administration</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
-        <form @submit.prevent="login" class="space-y-4">
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
-            <input v-model="loginEmail" type="email" required placeholder="jobs@revivealicious.com"
-              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
-          </div>
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-            <input v-model="loginPassword" type="password" required placeholder="••••••••"
-              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
-          </div>
-          <div v-if="loginError" class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{{ loginError }}</div>
-          <button type="submit" :disabled="loggingIn"
-            class="w-full text-white py-3 rounded-lg font-bold text-base transition-colors shadow-md flex items-center justify-center gap-2"
-            :style="{ background: loggingIn ? '#9ca3af' : '#40d134' }">
-            <span v-if="loggingIn" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            {{ loggingIn ? 'Signing in...' : 'Sign In' }}
-          </button>
-        </form>
-      </div>
+  <!-- ======== SSO LOADING ======== -->
+  <div v-if="ssoChecking" class="min-h-screen flex items-center justify-center" style="background:#f9fafb;">
+    <div class="text-center">
+      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-10 mx-auto mb-5 opacity-60">
+      <div class="inline-block w-6 h-6 border-2 border-gray-300 border-t-brand rounded-full animate-spin"></div>
+    </div>
+  </div>
+
+  <!-- ======== ACCESS DENIED ======== -->
+  <div v-else-if="!loggedIn" class="min-h-screen flex items-center justify-center px-4" style="background:#f9fafb;">
+    <div class="text-center">
+      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-12 mx-auto mb-6">
+      <h1 class="text-xl font-bold text-gray-800 mb-2">Access restricted</h1>
+      <p class="text-gray-500 text-sm">Please open the Jobs admin from the <a href="https://team.revive.co.nz" class="text-brand font-semibold hover:underline">Revive Portal</a>.</p>
     </div>
   </div>
 

@@ -27,7 +27,7 @@
     .hero { padding: 64px 24px 56px; text-align: center; border-bottom: 1px solid #e5e5e5; background: #fff; }
     .hero h1 { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 14px; }
     .hero p { font-size: 16px; color: #444; max-width: 500px; margin: 0 auto 28px; }
-    .hero-badge { display: inline-block; background: #f7ff19; color: #000; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 20px; }
+    .hero-badge { display: inline-block; background: #e8f5e8; color: #1a5e14; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 20px; }
 
     /* Section */
     .section { max-width: 860px; margin: 0 auto; padding: 56px 24px; }
@@ -57,7 +57,7 @@
     .tag-pt { background: #e8f5e9; color: #2e7d32; }
     .tag-ft { background: #e8f5e9; color: #2e7d32; }
     .tag-casual { background: #f3e5f5; color: #6a1b9a; }
-    .tag-new { background: #f7ff19; color: #000; }
+    .tag-new { background: #e8f5e8; color: #1a5e14; }
     .job-meta { font-size: 12px; color: #999; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0; }
     .job-arrow { flex-shrink: 0; width: 32px; height: 32px; border: 1.5px solid #e5e5e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #999; transition: all 0.15s; margin-top: 2px; }
     .job-card:hover .job-arrow { border-color: #40d134; color: #40d134; }
@@ -154,7 +154,7 @@
       <!-- Cards -->
       <div v-else>
         <a v-for="job in jobs" :key="job.id"
-          :href="'job.html?id=' + job.id"
+          :href="job.code ? '/' + job.code : 'job.html?id=' + job.id"
           class="job-card"
           @click.capture="trackView(job.id)">
           <div class="job-header">
