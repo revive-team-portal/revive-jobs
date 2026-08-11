@@ -79,7 +79,6 @@
         </button>
       </nav>
       <div class="p-3 border-t border-gray-100">
-        <a href="index.html" target="_blank" class="block text-xs text-gray-400 hover:text-brand mb-2 transition-colors">↗ View Public Site</a>
         <button @click="logout" class="w-full text-left text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Sign Out</button>
       </div>
     </aside>
@@ -495,6 +494,7 @@
         <form @submit.prevent="saveJob" class="max-w-3xl space-y-5">
           <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
 
+            <!-- Basic info -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Title <span class="text-red-500">*</span></label>
@@ -538,12 +538,58 @@
               </div>
             </div>
 
+            <!-- Key facts -->
+            <div>
+              <h3 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Key Facts <span class="text-xs font-normal text-gray-400 normal-case tracking-normal">(shown as highlight boxes on the listing)</span></h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
+                  <input v-model="editingJob.start_date" type="date"
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Hourly Rate ($)</label>
+                  <input v-model="editingJob.hourly_rate" type="number" step="0.01" min="0" placeholder="e.g. 25.00"
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1.5">Min Hours / Week</label>
+                  <input v-model="editingJob.min_hours" type="number" min="0" placeholder="e.g. 30"
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                </div>
+              </div>
+            </div>
+
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Description <span class="text-red-500">*</span></label>
               <p class="text-xs text-gray-400 mb-2">Supports basic HTML (bold, lists, headings). Full job details, requirements, responsibilities.</p>
               <textarea v-model="editingJob.description" rows="14" required
                 placeholder="<h2>About the Role</h2>&#10;<p>We are looking for...</p>&#10;&#10;<h2>What you'll do</h2>&#10;<ul><li>...</li></ul>"
                 class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+            </div>
+
+            <!-- Application questions -->
+            <div>
+              <h3 class="text-sm font-bold text-gray-700 mb-1 uppercase tracking-wide">Application Questions</h3>
+              <p class="text-xs text-gray-400 mb-3">Applicants must answer each question when applying.</p>
+              <div class="space-y-2 mb-3">
+                <div v-for="(q, i) in (editingJob.questions || [])" :key="i"
+                  class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <span class="text-xs font-bold text-gray-400 w-5 shrink-0">{{ i+1 }}.</span>
+                  <input :value="q" @input="updateQuestion(i, $event.target.value)"
+                    class="flex-1 text-sm bg-transparent border-none outline-none text-gray-700" placeholder="Enter question…">
+                  <button type="button" @click="removeQuestion(i)"
+                    class="text-gray-300 hover:text-red-400 transition-colors shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <div v-if="!editingJob.questions || editingJob.questions.length === 0" class="text-xs text-gray-400 italic py-1">No questions added yet.</div>
+              </div>
+              <button type="button" @click="addQuestion"
+                class="flex items-center gap-1.5 text-sm text-brand font-semibold hover:text-brand-dark transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add question
+              </button>
             </div>
 
           </div>
@@ -960,12 +1006,12 @@ createApp({
     }
 
     function startNewJob() {
-      editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '' };
+      editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '', start_date: '', hourly_rate: '', min_hours: '', questions: [] };
       view.value = 'edit-job';
     }
 
     function editJob(job) {
-      editingJob.value = { ...job };
+      editingJob.value = { ...job, questions: job.questions ? [...job.questions] : [] };
       selectedJob.value = job;
       view.value = 'edit-job';
     }
@@ -978,7 +1024,11 @@ createApp({
         description: job.description,
         employer_name: job.employer_name,
         employer_email: job.employer_email,
-        expiry_date: ''
+        expiry_date: '',
+        start_date: job.start_date || '',
+        hourly_rate: job.hourly_rate || '',
+        min_hours: job.min_hours || '',
+        questions: job.questions ? [...job.questions] : []
       };
       view.value = 'edit-job';
     }
@@ -994,7 +1044,11 @@ createApp({
           description: editingJob.value.description,
           employer_name: editingJob.value.employer_name,
           employer_email: editingJob.value.employer_email,
-          expiry_date: editingJob.value.expiry_date || null
+          expiry_date: editingJob.value.expiry_date || null,
+          start_date: editingJob.value.start_date || null,
+          hourly_rate: editingJob.value.hourly_rate || null,
+          min_hours: editingJob.value.min_hours || null,
+          questions: editingJob.value.questions || []
         };
 
         if (editingJob.value.id) {
@@ -1378,13 +1432,20 @@ createApp({
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
+      function addQuestion() {
+        if (!editingJob.value.questions) editingJob.value.questions = [];
+        editingJob.value.questions.push('');
+      }
+      function removeQuestion(i) { editingJob.value.questions.splice(i, 1); }
+      function updateQuestion(i, val) { editingJob.value.questions[i] = val; }
+
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob,
       openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
       saveSettings, saveAllEmailTemplates,
       uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
-      exportCSV, copyJobLink,
+      exportCSV, copyJobLink, addQuestion, removeQuestion, updateQuestion,
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass
     };

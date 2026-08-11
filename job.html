@@ -13,45 +13,50 @@
     nav { border-bottom: 1px solid #e0e0e0; background: #fff; position: sticky; top: 0; z-index: 50; }
     .nav-inner { max-width: 680px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; }
     .nav-logo img { height: 30px; }
-    .nav-back { font-size: 13px; color: #666; }
+    .nav-back { font-size: 13px; color: #888; }
     .nav-back:hover { color: #40d134; }
 
-    .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px; }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px 60px; }
 
     /* Job header */
-    .job-header { padding: 36px 0 24px; }
-    .job-tag { display: inline-block; background: #f0faf0; color: #2a7d1e; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 12px; }
-    .job-title { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; color: #111; }
-    .job-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
-    .job-meta span { margin-right: 16px; }
+    .job-header { padding: 32px 0 0; }
+    .job-tag { display: inline-block; background: #f0faf0; color: #2a7d1e; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 10px; }
+    .job-title { font-size: 24px; font-weight: 800; line-height: 1.2; margin-bottom: 6px; color: #111; }
+    .job-location { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+    /* Key facts */
+    .key-facts { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .fact-box { background: #f5f5f3; border-radius: 6px; padding: 10px 14px; min-width: 120px; }
+    .fact-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #999; margin-bottom: 3px; }
+    .fact-value { font-size: 14px; font-weight: 700; color: #111; }
 
     /* Small photo squares */
-    .photo-row { display: flex; gap: 8px; margin-bottom: 28px; }
-    .photo-row img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+    .photo-row { display: flex; gap: 8px; margin-bottom: 22px; }
+    .photo-row img { width: 76px; height: 76px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 
     /* Apply button */
-    .apply-btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 11px 26px; border-radius: 4px; cursor: pointer; border: none; transition: background 0.15s; }
+    .apply-btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 11px 24px; border-radius: 4px; cursor: pointer; border: none; transition: background 0.15s; }
     .apply-btn:hover { background: #2fa626; }
 
     /* Divider */
-    .divider { border: none; border-top: 1px solid #e8e8e8; margin: 32px 0; }
+    .divider { border: none; border-top: 1px solid #ebebeb; margin: 28px 0; }
 
     /* Job description */
-    .job-desc h3 { font-size: 15px; font-weight: 700; margin: 24px 0 8px; color: #111; }
+    .job-desc h3 { font-size: 15px; font-weight: 700; margin: 22px 0 8px; color: #111; }
     .job-desc h3:first-child { margin-top: 0; }
     .job-desc p { color: #444; margin-bottom: 12px; font-size: 14px; }
     .job-desc ul { margin: 0 0 12px 18px; color: #444; }
     .job-desc li { margin-bottom: 5px; font-size: 14px; }
 
     /* Application form */
-    .apply-section { border-top: 2px solid #40d134; padding-top: 36px; margin-top: 40px; padding-bottom: 60px; }
-    .apply-section h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: #111; }
-    .apply-section .subtitle { color: #777; font-size: 13px; margin-bottom: 28px; }
+    .apply-section { border-top: 2px solid #40d134; padding-top: 32px; margin-top: 36px; }
+    .apply-section h2 { font-size: 19px; font-weight: 800; margin-bottom: 4px; color: #111; }
+    .apply-section .subtitle { color: #777; font-size: 13px; margin-bottom: 24px; }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    @media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) { .form-row { grid-template-columns: 1fr; } }
     .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+    .form-group label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
     .form-group input, .form-group select, .form-group textarea {
       width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 4px;
       font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fff;
@@ -60,24 +65,37 @@
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none; border-color: #40d134;
     }
-    .form-group textarea { resize: vertical; min-height: 110px; }
+    .form-group textarea { resize: vertical; min-height: 90px; }
+
+    /* Visa detail box */
+    .visa-details { background: #f8f8f6; border-radius: 6px; padding: 16px; margin-top: 10px; }
+    .visa-details .form-row { margin-bottom: 0; }
 
     /* File upload */
-    .file-drop { border: 1.5px dashed #ccc; border-radius: 4px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s; background: #fafafa; }
+    .file-drop { border: 1.5px dashed #ccc; border-radius: 4px; padding: 18px; text-align: center; cursor: pointer; transition: border-color 0.15s; background: #fafafa; }
     .file-drop:hover, .file-drop.over { border-color: #40d134; background: #f6fff6; }
     .file-drop svg { color: #ccc; }
-    .file-drop p { font-size: 12px; color: #999; margin-top: 5px; }
-    .file-name { font-size: 13px; color: #40d134; font-weight: 600; margin-top: 6px; }
+    .file-drop p { font-size: 12px; color: #999; margin-top: 4px; }
+    .file-name { font-size: 13px; color: #40d134; font-weight: 600; margin-top: 5px; }
     input[type=file] { display: none; }
 
-    .submit-wrap { margin-top: 24px; }
+    /* Questions section */
+    .questions-section { border: 1px solid #e8e8e8; border-radius: 6px; padding: 18px; margin-bottom: 14px; background: #fafaf8; }
+    .questions-section h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #555; margin-bottom: 14px; }
+    .q-item { margin-bottom: 12px; }
+    .q-item:last-child { margin-bottom: 0; }
+    .q-label { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px; }
+    .q-input { width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fff; resize: vertical; min-height: 70px; transition: border-color 0.15s; }
+    .q-input:focus { outline: none; border-color: #40d134; }
+
+    .submit-wrap { margin-top: 22px; }
     .submit-btn { background: #40d134; color: #fff; font-weight: 700; font-size: 15px; padding: 13px 32px; border: none; border-radius: 4px; cursor: pointer; width: 100%; transition: background 0.15s; }
     .submit-btn:hover:not(:disabled) { background: #2fa626; }
     .submit-btn:disabled { background: #a0d99b; cursor: not-allowed; }
     .form-note { font-size: 12px; color: #aaa; margin-top: 8px; text-align: center; }
 
     /* States */
-    .success-box { background: #f0faf0; border: 1px solid #b3e6b0; border-radius: 6px; padding: 32px; text-align: center; margin-bottom: 60px; }
+    .success-box { background: #f0faf0; border: 1px solid #b3e6b0; border-radius: 6px; padding: 32px; text-align: center; }
     .success-box h3 { color: #1e7a14; font-size: 18px; margin-bottom: 8px; }
     .success-box p { color: #555; font-size: 14px; }
     .error-box { background: #fff5f5; border: 1px solid #fcc; border-radius: 4px; padding: 10px 14px; font-size: 13px; color: #c00; margin-bottom: 14px; }
@@ -90,28 +108,45 @@
 
 <nav>
   <div class="nav-inner">
-    <a href="/" class="nav-logo">
+    <a href="https://www.revive.co.nz" class="nav-logo">
       <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe">
     </a>
-    <a href="/" class="nav-back">← All jobs</a>
+    <a href="https://www.revive.co.nz" class="nav-back">revive.co.nz</a>
   </div>
 </nav>
 
 <div id="app">
-  <div v-if="loading" class="loading">Loading…</div>
+  <div v-if="loading" class="loading wrap">Loading…</div>
 
   <div v-else-if="!job" class="not-found wrap">
     <h2>Job not found</h2>
-    <p style="font-size:14px;color:#888;margin-top:6px"><a href="/" style="color:#40d134;">View all open positions →</a></p>
+    <p style="font-size:14px;color:#888;margin-top:6px">This listing may have closed. Visit <a href="https://www.revive.co.nz" style="color:#40d134;">revive.co.nz</a> to learn more about us.</p>
   </div>
 
   <div v-else class="wrap">
     <div class="job-header">
       <div class="job-tag">{{ formatType(job.type) }}</div>
       <h1 class="job-title">{{ job.title }}</h1>
-      <div class="job-meta">
-        <span>📍 Auckland CBD</span>
-        <span v-if="job.expiry_date">Closes {{ formatDate(job.expiry_date) }}</span>
+      <div class="job-location">📍 Auckland CBD<span v-if="job.expiry_date"> &nbsp;·&nbsp; Closes {{ formatDate(job.expiry_date) }}</span></div>
+
+      <!-- Key facts boxes -->
+      <div class="key-facts">
+        <div class="fact-box" v-if="job.start_date">
+          <div class="fact-label">Start Date</div>
+          <div class="fact-value">{{ formatDate(job.start_date) }}</div>
+        </div>
+        <div class="fact-box">
+          <div class="fact-label">Type</div>
+          <div class="fact-value">{{ formatType(job.type) }}</div>
+        </div>
+        <div class="fact-box" v-if="job.hourly_rate">
+          <div class="fact-label">Pay</div>
+          <div class="fact-value">${{ Number(job.hourly_rate).toFixed(2) }}/hr</div>
+        </div>
+        <div class="fact-box" v-if="job.min_hours">
+          <div class="fact-label">Min Hours</div>
+          <div class="fact-value">{{ job.min_hours }} hrs/wk</div>
+        </div>
       </div>
 
       <!-- Small photo squares -->
@@ -132,7 +167,7 @@
     <!-- Application form -->
     <div class="apply-section" id="apply" v-if="!submitted">
       <h2>Apply for this role</h2>
-      <p class="subtitle">Fill in your details below — takes about 2 minutes.</p>
+      <p class="subtitle">Takes about 2 minutes.</p>
 
       <div v-if="formError" class="error-box">{{ formError }}</div>
 
@@ -159,15 +194,45 @@
           </div>
         </div>
 
+        <!-- Work rights -->
         <div class="form-group">
           <label>Right to work in New Zealand? *</label>
           <select v-model="form.work_rights" required>
             <option value="">Select…</option>
             <option value="citizen">NZ / Australian Citizen</option>
             <option value="resident">NZ Permanent Resident</option>
-            <option value="work_visa">Work Visa (please mention in your cover letter)</option>
+            <option value="work_visa">Work Visa</option>
             <option value="student_visa">Student Visa</option>
           </select>
+        </div>
+
+        <!-- Work visa detail fields -->
+        <div class="visa-details" v-if="form.work_rights === 'work_visa'">
+          <div class="form-row">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Country of Visa *</label>
+              <input v-model="form.visa_country" type="text" required placeholder="e.g. New Zealand">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Visa Type *</label>
+              <input v-model="form.visa_type" type="text" required placeholder="e.g. Working Holiday">
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Visa Length / Expiry *</label>
+              <input v-model="form.visa_length" type="text" required placeholder="e.g. Expires Dec 2027">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Special Conditions</label>
+              <input v-model="form.visa_conditions" type="text" placeholder="e.g. Max 20hrs/wk">
+            </div>
+          </div>
+        </div>
+
+        <!-- Student visa note -->
+        <div v-if="form.work_rights === 'student_visa'" style="font-size:12px;color:#888;margin:-8px 0 14px;padding:8px 12px;background:#f8f8f8;border-radius:4px;">
+          Student visas typically allow up to 20 hours of work per week during study. Please mention any relevant conditions in your cover letter.
         </div>
 
         <div class="form-group">
@@ -183,19 +248,28 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label>Cover letter *</label>
-          <textarea v-model="form.cover_letter" required placeholder="Tell us about yourself and why you'd be a great fit. If the role lists specific questions, please answer them here."></textarea>
+        <!-- Application questions -->
+        <div class="questions-section" v-if="job.questions && job.questions.length">
+          <h4>Please answer the following questions</h4>
+          <div class="q-item" v-for="(q, i) in job.questions" :key="i">
+            <div class="q-label">{{ i+1 }}. {{ q }}</div>
+            <textarea class="q-input" v-model="form.answers[i]" required :placeholder="'Your answer…'"></textarea>
+          </div>
         </div>
 
         <div class="form-group">
-          <label>CV / Resume <span style="color:#bbb;font-weight:400;text-transform:none">(optional)</span></label>
+          <label>Cover letter *</label>
+          <textarea v-model="form.cover_letter" required placeholder="Tell us about yourself and why you'd be a great fit for Revive."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>CV / Resume <span style="color:#ccc;font-weight:400;text-transform:none">(optional)</span></label>
           <div class="file-drop" :class="{over: dragging}"
             @click="$refs.fileInput.click()"
             @dragover.prevent="dragging=true"
             @dragleave="dragging=false"
             @drop.prevent="handleDrop">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
             </svg>
             <p>Click to upload or drag & drop</p>
@@ -240,7 +314,9 @@ createApp({
     const dragging = ref(false);
     const form = ref({
       first_name: '', last_name: '', email: '', phone: '',
-      work_rights: '', referral_source: '', cover_letter: '', resume: null
+      work_rights: '', referral_source: '', cover_letter: '',
+      resume: null, answers: [],
+      visa_country: '', visa_type: '', visa_length: '', visa_conditions: ''
     });
 
     async function loadJob() {
@@ -254,7 +330,11 @@ createApp({
         else { loading.value = false; return; }
         const { data } = await q.single();
         job.value = data || null;
-        if (data) document.title = data.title + ' — Revive Cafe';
+        if (data) {
+          document.title = data.title + ' — Revive Cafe';
+          // Pre-fill answers array to match question count
+          form.value.answers = (data.questions || []).map(() => '');
+        }
       } catch {}
       loading.value = false;
     }
@@ -270,6 +350,11 @@ createApp({
           const { error: upErr } = await sb.storage.from('jobs-resumes').upload(path, form.value.resume);
           if (!upErr) resume_url = path;
         }
+        // Build answers object: { "Question text": "answer" }
+        const answers = {};
+        (job.value.questions || []).forEach((q, i) => {
+          answers[q] = form.value.answers[i] || '';
+        });
         const payload = {
           job_id: job.value.id,
           name: form.value.first_name + ' ' + form.value.last_name,
@@ -279,6 +364,11 @@ createApp({
           work_rights: form.value.work_rights,
           referral_source: form.value.referral_source || null,
           resume_url,
+          answers,
+          visa_country: form.value.work_rights === 'work_visa' ? form.value.visa_country : null,
+          visa_type: form.value.work_rights === 'work_visa' ? form.value.visa_type : null,
+          visa_length: form.value.work_rights === 'work_visa' ? form.value.visa_length : null,
+          visa_conditions: form.value.work_rights === 'work_visa' ? form.value.visa_conditions : null,
           status: 'new'
         };
         const { error } = await sb.from('applications').insert(payload);
