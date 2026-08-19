@@ -103,6 +103,8 @@ exports.handler = async (event) => {
     nationality: analysis.nationality,
     last_company: analysis.last_company,
     last_position: analysis.last_position,
+    countries_worked: analysis.countries_worked,
+    recent_jobs: analysis.recent_jobs,
     previous_employers: analysis.previous_employers,
     cv_summary: analysis.cv_summary,
     ai_analysis_notes: analysis.ai_notes,
@@ -141,6 +143,8 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "visa_type": "<visa type if clearly stated, else null>",
   "last_company": "<most recent employer name, else null>",
   "last_position": "<most recent job title, else null>",
+  "countries_worked": "<comma-separated countries they have WORKED in, most recent first, else null>",
+  "recent_jobs": [ { "company": "<name>", "position": "<title>", "dates": "<e.g. 2022-2024, else null>", "country": "<else null>" } ],
   "previous_employers": "<Company (Role), Company (Role) — earlier roles, else null>",
   "cv_summary": "<one sentence, factual, about their background>",
   "ai_notes": "<1-2 sentences explaining the ai_score>"
@@ -160,7 +164,13 @@ EXTRACTION RULES — these matter more than the scores:
 - Use null, not a guess, for anything not clearly stated. Never invent an employer, title or nationality.
 - Do not use placeholder strings like "Not stated", "Unknown" or "N/A". Use null.
 - last_company and last_position must be the MOST RECENT role only. Put earlier roles in previous_employers.
-- nationality means citizenship or stated nationality, not the city they live in.`;
+- nationality means citizenship or stated nationality, not the city they live in.
+- countries_worked: only countries where they actually held a job. Infer the country from
+  an employer's location when it is clear (e.g. "Cafe in Sydney" implies Australia). Do not
+  include countries they only studied in, travelled to, or hold a passport for. If every role
+  is in one country, return just that country. Return null if no work location is identifiable.
+- recent_jobs: up to 4 roles, most recent FIRST. Use null for any field you cannot read.
+  Return an empty array if no work history is identifiable. Never invent an employer.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -191,6 +201,8 @@ EXTRACTION RULES — these matter more than the scores:
     visa_type: clean(a.visa_type),
     last_company: clean(a.last_company),
     last_position: clean(a.last_position),
+    countries_worked: clean(a.countries_worked),
+    recent_jobs: cleanJobs(a.recent_jobs),
     previous_employers: clean(a.previous_employers),
     cv_summary: clean(a.cv_summary),
     ai_notes: clean(a.ai_notes)
@@ -210,6 +222,18 @@ function clean(v) {
   if (!s) return null;
   if (/^(null|none|n\/?a|not stated|not listed|not specified|unknown|not provided)$/i.test(s)) return null;
   return s.slice(0, 300);
+}
+
+// Keep only entries with something real in them, so the tile never shows blank rows.
+function cleanJobs(v) {
+  if (!Array.isArray(v)) return null;
+  const out = v.slice(0, 4).map(j => ({
+    company: clean(j && j.company),
+    position: clean(j && j.position),
+    dates: clean(j && j.dates),
+    country: clean(j && j.country)
+  })).filter(j => j.company || j.position);
+  return out.length ? out : null;
 }
 
 function stripHtml(h) {
