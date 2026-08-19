@@ -34,6 +34,33 @@
     .photo-row { display: flex; gap: 8px; margin-bottom: 22px; }
     .photo-row img { width: 76px; height: 76px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 
+    /* Hero photo strip + company intro at the top of the ad */
+    .hero-photos { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin: 0 0 22px; }
+    .hero-photos img { width: 100%; height: 190px; object-fit: cover; border-radius: 8px; display: block; }
+    .hero-photos .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; }
+    .hero-photos .stack img { height: 91px; }
+    @media (max-width: 620px) {
+      .hero-photos { grid-template-columns: 1fr; }
+      .hero-photos img, .hero-photos .stack img { height: 170px; }
+      .hero-photos .stack { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
+    }
+    .about-box { background: #f7fbf7; border: 1px solid #e2f0e2; border-radius: 8px; padding: 18px 20px; margin-bottom: 22px; }
+    .about-box h2 { font-size: 15px; font-weight: 800; color: #111; margin-bottom: 8px; }
+    .about-box p { font-size: 13.5px; color: #444; line-height: 1.65; white-space: pre-line; margin: 0; }
+    .benefits-box { margin-bottom: 22px; }
+    .benefits-box h2 { font-size: 15px; font-weight: 800; color: #111; margin-bottom: 10px; }
+    .benefits-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 18px; }
+    @media (max-width: 620px) { .benefits-list { grid-template-columns: 1fr; } }
+    .benefits-list li { font-size: 13.5px; color: #444; padding-left: 22px; position: relative; line-height: 1.5; }
+    .benefits-list li:before { content: '\2713'; position: absolute; left: 0; top: 0; color: #40d134; font-weight: 700; }
+    .doc-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .doc-item { display: flex; align-items: center; gap: 8px; font-size: 13px; background: #f6fff6; border: 1px solid #d9f0d7; border-radius: 4px; padding: 7px 10px; }
+    .doc-item .nm { flex: 1; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-item .sz { color: #999; font-size: 11px; flex-shrink: 0; }
+    .doc-item button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+    .doc-item button:hover { color: #e34; }
+    .detail-input { margin-top: 8px; }
+
     /* Apply button */
     .apply-btn { display: inline-block; background: #40d134; color: #fff; font-weight: 700; font-size: 14px; padding: 11px 24px; border-radius: 4px; cursor: pointer; border: none; transition: background 0.15s; }
     .apply-btn:hover { background: #2fa626; }
@@ -149,14 +176,32 @@
         </div>
       </div>
 
-      <!-- Small photo squares -->
-      <div class="photo-row">
-        <img src="/images/cafe1.jpg" alt="Revive Cafe">
-        <img src="/images/cafe2.jpg" alt="Revive Cafe kitchen">
-        <img src="/images/cafe3.jpg" alt="Revive Cafe food">
-      </div>
-
       <button class="apply-btn" @click="scrollToApply">Apply Now ↓</button>
+    </div>
+
+    <!-- Photos, who we are, and what you get — all before the role detail -->
+    <div class="hero-photos" v-if="photos.length">
+      <img :src="photos[0]" alt="Revive Cafe">
+      <div class="stack" v-if="photos[1]">
+        <img :src="photos[1]" alt="Revive Cafe">
+        <img v-if="photos[3]" :src="photos[3]" alt="Revive Cafe">
+      </div>
+      <div class="stack" v-if="photos[2]">
+        <img :src="photos[2]" alt="Revive Cafe">
+        <img v-if="photos[4]" :src="photos[4]" alt="Revive Cafe">
+      </div>
+    </div>
+
+    <div class="about-box" v-if="companyHistory">
+      <h2>About Revive Cafe</h2>
+      <p>{{ companyHistory }}</p>
+    </div>
+
+    <div class="benefits-box" v-if="benefits.length">
+      <h2>What you get working here</h2>
+      <ul class="benefits-list">
+        <li v-for="(b, i) in benefits" :key="i">{{ b }}</li>
+      </ul>
     </div>
 
     <hr class="divider">
@@ -203,7 +248,12 @@
             <option value="resident">NZ Permanent Resident</option>
             <option value="work_visa">Work Visa</option>
             <option value="student_visa">Student Visa</option>
+            <option value="other">Other</option>
           </select>
+          <div class="detail-input" v-if="form.work_rights === 'other'">
+            <input v-model="form.work_rights_detail" type="text" required
+              placeholder="Please tell us about your right to work in New Zealand">
+          </div>
         </div>
 
         <!-- Work visa detail fields -->
@@ -244,8 +294,12 @@
             <option value="facebook">Facebook</option>
             <option value="friend">Friend / Word of mouth</option>
             <option value="walked_past">Walked past the cafe</option>
+            <option value="backpacker_board">Backpacker Board</option>
             <option value="other">Other</option>
           </select>
+          <div class="detail-input" v-if="form.referral_source === 'other'">
+            <input v-model="form.referral_other" type="text" placeholder="How did you hear about us?">
+          </div>
         </div>
 
         <!-- Application questions -->
@@ -258,12 +312,12 @@
         </div>
 
         <div class="form-group">
-          <label>Cover letter *</label>
-          <textarea v-model="form.cover_letter" required placeholder="Tell us about yourself and why you'd be a great fit for Revive."></textarea>
+          <label>Cover letter</label>
+          <textarea v-model="form.cover_letter" placeholder="Tell us about yourself and why you'd be a great fit for Revive. Alternatively, upload a cover letter below."></textarea>
         </div>
 
         <div class="form-group">
-          <label>CV / Resume <span style="color:#ccc;font-weight:400;text-transform:none">(optional)</span></label>
+          <label>CV, cover letter &amp; other documents <span style="color:#ccc;font-weight:400;text-transform:none">(optional)</span></label>
           <div class="file-drop" :class="{over: dragging}"
             @click="$refs.fileInput.click()"
             @dragover.prevent="dragging=true"
@@ -272,11 +326,18 @@
             <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
             </svg>
-            <p>Click to upload or drag & drop</p>
-            <p>PDF, DOC, DOCX — max 5 MB</p>
-            <div v-if="form.resume" class="file-name">✓ {{ form.resume.name }}</div>
+            <p>Click to upload or drag &amp; drop — you can add more than one</p>
+            <p>PDF, DOC, DOCX, JPG or PNG — max 5 MB each</p>
           </div>
-          <input ref="fileInput" type="file" accept=".pdf,.doc,.docx" @change="handleFile">
+          <input ref="fileInput" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" @change="handleFile">
+          <div class="doc-list" v-if="form.files.length">
+            <div class="doc-item" v-for="(f, i) in form.files" :key="i">
+              <span class="nm">{{ f.name }}</span>
+              <span class="sz">{{ fileSize(f.size) }}</span>
+              <button type="button" @click="removeFile(i)" title="Remove">&times;</button>
+            </div>
+          </div>
+          <p v-if="fileError" style="font-size:12px;color:#e34;margin-top:6px">{{ fileError }}</p>
         </div>
 
         <div class="submit-wrap">
@@ -312,12 +373,40 @@ createApp({
     const submitting = ref(false);
     const formError = ref('');
     const dragging = ref(false);
+    const fileError = ref('');
+    const companyHistory = ref('');
+    const benefits = ref([]);
+    const photos = ref([]);
+    const FALLBACK_PHOTOS = ['/images/cafe1.jpg', '/images/cafe2.jpg', '/images/cafe3.jpg'];
+    const MAX_FILE_BYTES = 5 * 1024 * 1024;
+    const MAX_FILES = 6;
+
     const form = ref({
       first_name: '', last_name: '', email: '', phone: '',
-      work_rights: '', referral_source: '', cover_letter: '',
-      resume: null, answers: [],
+      work_rights: '', work_rights_detail: '',
+      referral_source: '', referral_other: '', cover_letter: '',
+      files: [], answers: [],
       visa_country: '', visa_type: '', visa_length: '', visa_conditions: ''
     });
+
+    // Company blurb, benefits and photos come from the same Settings the admin edits.
+    async function loadCompanyContent() {
+      try {
+        const { data } = await sb.from('settings').select('key,value').in('key', ['company_history', 'company_benefits']);
+        const map = {};
+        (data || []).forEach(r => { map[r.key] = r.value; });
+        companyHistory.value = (map.company_history || '').trim();
+        benefits.value = (map.company_benefits || '')
+          .split('\n').map(b => b.replace(/^[-\u2022\s]+/, '').trim()).filter(Boolean);
+      } catch {}
+      try {
+        const { data } = await sb.from('gallery_photos').select('url').order('created_at');
+        const urls = (data || []).map(p => p.url).filter(Boolean);
+        photos.value = urls.length ? urls.slice(0, 5) : FALLBACK_PHOTOS;
+      } catch {
+        photos.value = FALLBACK_PHOTOS;
+      }
+    }
 
     async function loadJob() {
       const params = new URLSearchParams(window.location.search);
@@ -343,54 +432,87 @@ createApp({
 
     async function submitApplication() {
       formError.value = '';
+      if (!form.value.cover_letter.trim() && !form.value.files.length) {
+        formError.value = 'Please write a short cover letter or upload one.';
+        return;
+      }
       submitting.value = true;
       try {
-        let resume_url = null;
-        if (form.value.resume) {
-          const ext = form.value.resume.name.split('.').pop();
-          const path = `${job.value.id}/${Date.now()}.${ext}`;
-          const { error: upErr } = await sb.storage.from('jobs-resumes').upload(path, form.value.resume);
-          if (!upErr) resume_url = path;
+        // Files go straight to storage; the record is written server-side.
+        const documents = [];
+        for (const f of form.value.files) {
+          const ext = (f.name.split('.').pop() || 'dat').toLowerCase();
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
+          const path = `${job.value.id}/${Date.now()}_${documents.length}_${safe}`;
+          const { error: upErr } = await sb.storage.from('jobs-resumes').upload(path, f);
+          if (upErr) throw upErr;
+          documents.push({ path, filename: f.name, size: f.size, kind: classifyFile(f.name) });
         }
-        // Build answers object: { "Question text": "answer" }
+
         const answers = {};
-        (job.value.questions || []).forEach((q, i) => {
-          answers[q] = form.value.answers[i] || '';
+        (job.value.questions || []).forEach((q, i) => { answers[q] = form.value.answers[i] || ''; });
+
+        const res = await fetch('/.netlify/functions/submit-application', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: job.value.id,
+            first_name: form.value.first_name,
+            last_name: form.value.last_name,
+            email: form.value.email,
+            phone: form.value.phone,
+            cover_letter: form.value.cover_letter,
+            work_rights: form.value.work_rights,
+            work_rights_detail: form.value.work_rights === 'other' ? form.value.work_rights_detail : '',
+            referral_source: form.value.referral_source,
+            referral_other: form.value.referral_source === 'other' ? form.value.referral_other : '',
+            visa_country: form.value.visa_country,
+            visa_type: form.value.visa_type,
+            visa_length: form.value.visa_length,
+            visa_conditions: form.value.visa_conditions,
+            answers,
+            documents
+          })
         });
-        const payload = {
-          job_id: job.value.id,
-          name: form.value.first_name + ' ' + form.value.last_name,
-          email: form.value.email,
-          phone: form.value.phone,
-          cover_letter: form.value.cover_letter,
-          work_rights: form.value.work_rights,
-          referral_source: form.value.referral_source || null,
-          resume_url,
-          answers,
-          visa_country: form.value.work_rights === 'work_visa' ? form.value.visa_country : null,
-          visa_type: form.value.work_rights === 'work_visa' ? form.value.visa_type : null,
-          visa_length: form.value.work_rights === 'work_visa' ? form.value.visa_length : null,
-          visa_conditions: form.value.work_rights === 'work_visa' ? form.value.visa_conditions : null,
-          status: 'new'
-        };
-        const { error } = await sb.from('applications').insert(payload);
-        if (error) throw error;
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.ok) throw new Error(out.error || 'save failed');
         submitted.value = true;
       } catch (e) {
-        formError.value = 'Something went wrong — please try again or email jobs@revivealicious.com';
+        formError.value = (e && e.message && e.message !== 'save failed' && e.message.length < 120)
+          ? e.message
+          : 'Something went wrong — please try again or email jobs@revivealicious.com';
       }
       submitting.value = false;
     }
 
-    function handleFile(e) { const f = e.target.files[0]; if (f) form.value.resume = f; }
-    function handleDrop(e) { dragging.value = false; const f = e.dataTransfer.files[0]; if (f) form.value.resume = f; }
+    function addFiles(list) {
+      fileError.value = '';
+      for (const f of Array.from(list || [])) {
+        if (form.value.files.length >= MAX_FILES) { fileError.value = `You can attach up to ${MAX_FILES} files.`; break; }
+        if (f.size > MAX_FILE_BYTES) { fileError.value = `${f.name} is larger than 5 MB.`; continue; }
+        if (form.value.files.some(x => x.name === f.name && x.size === f.size)) continue;
+        form.value.files.push(f);
+      }
+    }
+    function handleFile(e) { addFiles(e.target.files); e.target.value = ''; }
+    function handleDrop(e) { dragging.value = false; addFiles(e.dataTransfer.files); }
+    function removeFile(i) { form.value.files.splice(i, 1); fileError.value = ''; }
+    function fileSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+    function classifyFile(name) {
+      const n = (name || '').toLowerCase();
+      if (/cover|letter|motivation/.test(n)) return 'cover_letter';
+      if (/cv|resume|r\u00e9sum\u00e9|curriculum/.test(n)) return 'cv';
+      return 'document';
+    }
     function scrollToApply() { document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     function formatType(t) { return { full_time:'Full Time', part_time:'Part Time', casual:'Casual', fixed_term:'Fixed Term' }[t] || t; }
     function formatDate(d) { return new Date(d).toLocaleDateString('en-NZ', { day:'numeric', month:'long', year:'numeric' }); }
 
-    onMounted(loadJob);
+    onMounted(() => { loadJob(); loadCompanyContent(); });
     return { job, loading, submitted, submitting, formError, dragging, form,
-      submitApplication, handleFile, handleDrop, scrollToApply, formatType, formatDate };
+      fileError, companyHistory, benefits, photos,
+      submitApplication, handleFile, handleDrop, removeFile, fileSize,
+      scrollToApply, formatType, formatDate };
   }
 }).mount('#app');
 </script>
