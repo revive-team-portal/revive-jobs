@@ -49,7 +49,7 @@ exports.handler = async (event) => {
   // 1. Load the application
   const appRes = await fetch(
     `${SUPABASE_URL}/rest/v1/applications?id=eq.${encodeURIComponent(id)}` +
-    `&select=id,job_id,cover_letter,resume_text,documents,visa_type,analysed_at`,
+    `&select=id,job_id,cover_letter,resume_text,documents,visa_type,answers,analysed_at`,
     { headers: svc() }
   );
   const rows = await appRes.json().catch(() => []);
@@ -64,7 +64,15 @@ exports.handler = async (event) => {
   const cvText = [body.cvText, app.resume_text, docText].filter(Boolean).join('\n\n').trim();
   const coverLetter = (app.cover_letter || '').trim();
 
-  if (!cvText && !coverLetter) {
+  // Screening answers are often the most role-specific thing an applicant gives us.
+  const answers = (app.answers && typeof app.answers === 'object')
+    ? Object.entries(app.answers)
+        .filter(([, v]) => v && String(v).trim())
+        .map(([q, v]) => `Q: ${q}\nA: ${String(v).trim()}`)
+        .join('\n\n')
+    : '';
+
+  if (!cvText && !coverLetter && !answers) {
     return { statusCode: 200, headers, body: JSON.stringify({ ok: false, reason: 'Nothing to analyse yet.' }) };
   }
 
@@ -82,7 +90,7 @@ exports.handler = async (event) => {
   // 4. Analyse
   let analysis;
   try {
-    analysis = await analyse({ cvText, coverLetter, jobTitle, jobDescription });
+    analysis = await analyse({ cvText, coverLetter, answers, jobTitle, jobDescription });
   } catch (err) {
     console.error('Analysis failed', err);
     return { statusCode: 502, headers, body: JSON.stringify({ error: 'Analysis failed' }) };
@@ -115,13 +123,14 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch }) };
 };
 
-async function analyse({ cvText, coverLetter, jobTitle, jobDescription }) {
+async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription }) {
   const prompt = `You are a recruitment analyst for Revive Cafe, a plant-based cafe and food brand in Auckland, New Zealand.
 
 ROLE APPLIED FOR: ${jobTitle || 'Not specified'}
 ${jobDescription ? `JOB DESCRIPTION:\n${stripHtml(jobDescription).substring(0, 800)}\n` : ''}
 ${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : 'No CV supplied.\n'}
 ${coverLetter ? `COVER LETTER:\n${coverLetter.substring(0, 2000)}\n` : ''}
+${answers ? `SCREENING QUESTIONS THE EMPLOYER ASKED, AND THEIR ANSWERS:\n${answers.substring(0, 2500)}\n` : ''}
 
 Return ONLY valid JSON with exactly this structure, no markdown and no explanation:
 
@@ -136,6 +145,9 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "cv_summary": "<one sentence, factual, about their background>",
   "ai_notes": "<1-2 sentences explaining the ai_score>"
 }
+
+Weight the screening answers heavily for suitability — the employer chose those
+questions precisely because they matter for this role.
 
 suitability_score: how well their background matches the role.
 9-10 exceptional match, 7-8 good with minor gaps, 5-6 moderate with notable gaps, 3-4 weak, 1-2 poor.
