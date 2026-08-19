@@ -35,14 +35,15 @@
     .photo-row img { width: 76px; height: 76px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 
     /* Hero photo strip + company intro at the top of the ad */
-    .hero-photos { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin: 0 0 22px; }
-    .hero-photos img { width: 100%; height: 190px; object-fit: cover; border-radius: 8px; display: block; }
-    .hero-photos .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; }
-    .hero-photos .stack img { height: 91px; }
+    .hero-photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0 0 22px; }
+    .hero-photos img { width: 100%; height: 155px; object-fit: cover; border-radius: 8px; display: block; }
+    .hero-photos.n-1 img { height: 260px; }
+    .hero-photos.n-2 img { height: 200px; }
     @media (max-width: 620px) {
-      .hero-photos { grid-template-columns: 1fr; }
-      .hero-photos img, .hero-photos .stack img { height: 170px; }
-      .hero-photos .stack { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
+      .hero-photos { grid-template-columns: 1fr 1fr; }
+      .hero-photos img, .hero-photos.n-1 img, .hero-photos.n-2 img { height: 130px; }
+      .hero-photos.n-1 { grid-template-columns: 1fr; }
+      .hero-photos.n-1 img { height: 190px; }
     }
     .about-box { background: #f7fbf7; border: 1px solid #e2f0e2; border-radius: 8px; padding: 18px 20px; margin-bottom: 22px; }
     .about-box h2 { font-size: 15px; font-weight: 800; color: #111; margin-bottom: 8px; }
@@ -180,16 +181,8 @@
     </div>
 
     <!-- Photos, who we are, and what you get — all before the role detail -->
-    <div class="hero-photos" v-if="photos.length">
-      <img :src="photos[0]" alt="Revive Cafe">
-      <div class="stack" v-if="photos[1]">
-        <img :src="photos[1]" alt="Revive Cafe">
-        <img v-if="photos[3]" :src="photos[3]" alt="Revive Cafe">
-      </div>
-      <div class="stack" v-if="photos[2]">
-        <img :src="photos[2]" alt="Revive Cafe">
-        <img v-if="photos[4]" :src="photos[4]" alt="Revive Cafe">
-      </div>
+    <div class="hero-photos" v-if="photos.length" :class="'n-' + photos.length">
+      <img v-for="(p, i) in photos" :key="i" :src="p" alt="Revive Cafe" loading="lazy">
     </div>
 
     <div class="about-box" v-if="companyHistory">
@@ -377,7 +370,6 @@ createApp({
     const companyHistory = ref('');
     const benefits = ref([]);
     const photos = ref([]);
-    const FALLBACK_PHOTOS = ['/images/cafe1.jpg', '/images/cafe2.jpg', '/images/cafe3.jpg'];
     const MAX_FILE_BYTES = 5 * 1024 * 1024;
     const MAX_FILES = 6;
 
@@ -399,18 +391,25 @@ createApp({
         benefits.value = (map.company_benefits || '')
           .split('\n').map(b => b.replace(/^[-\u2022\s]+/, '').trim()).filter(Boolean);
       } catch {}
+      // One shared photo set, managed in the admin under Settings > Gallery Photos.
       try {
         const { data } = await sb.from('gallery_photos').select('url').order('created_at');
-        const urls = (data || []).map(p => p.url).filter(Boolean);
-        photos.value = urls.length ? urls.slice(0, 5) : FALLBACK_PHOTOS;
+        photos.value = (data || []).map(p => p.url).filter(Boolean).slice(0, 6);
       } catch {
-        photos.value = FALLBACK_PHOTOS;
+        photos.value = [];
       }
+    }
+
+    // Netlify rewrites /391847 to job.html?code=391847, but the browser URL stays
+    // /391847 so there is no query string to read. Fall back to the path segment.
+    function codeFromPath() {
+      const seg = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      return /^[A-Za-z0-9_-]{4,32}$/.test(seg) ? seg : null;
     }
 
     async function loadJob() {
       const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
+      const code = params.get('code') || codeFromPath();
       const id = params.get('id');
       try {
         const preview = params.get('preview') === '1';
