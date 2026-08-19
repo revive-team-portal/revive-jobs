@@ -6,6 +6,40 @@
 
 const RESEND_API_KEY = process.env.RESEND_KEY;
 const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
+const DEFAULT_REPLY_TO = 'jobs@revivealicious.com';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
+
+// Replies go to the contact address set on the job. Resolved here, once, so no
+// caller can forget to pass it — give this function a jobId and it looks the
+// address up itself; an explicit employerEmail wins if one is supplied.
+async function resolveReplyTo(data) {
+  const explicit = (data.employerEmail || data.replyTo || '').trim();
+  if (explicit) return explicit;
+
+  const jobId = (data.jobId || data.job_id || '').trim();
+  if (jobId && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}&select=employer_email`,
+        { headers: {
+            apikey: SUPABASE_SERVICE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Accept-Profile': 'jobs'
+        } }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        const email = rows && rows[0] && (rows[0].employer_email || '').trim();
+        if (email) return email;
+      }
+    } catch (err) {
+      console.error('Could not resolve job reply-to address', err);
+    }
+  }
+  return DEFAULT_REPLY_TO;
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -32,6 +66,7 @@ exports.handler = async (event) => {
   const { type } = data;
 
   try {
+    const replyTo = await resolveReplyTo(data);
     let emailPayload;
 
     switch (type) {
@@ -49,12 +84,13 @@ exports.handler = async (event) => {
         break;
       case 'bulk_rejection':
         // Send multiple rejection emails
-        const results = await sendBulkRejections(data.applicants, data.jobTitle);
+        const results = await sendBulkRejections(data.applicants, data.jobTitle, replyTo);
         return { statusCode: 200, headers, body: JSON.stringify({ success: true, results }) };
       default:
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown email type' }) };
     }
 
+    emailPayload.reply_to = replyTo;
     const result = await sendEmail(emailPayload);
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: result.id }) };
 
@@ -177,7 +213,6 @@ function buildConfirmationEmail(data) {
   return {
     from: FROM_EMAIL,
     to: applicantEmail,
-    reply_to: employerEmail || 'jobs@revivealicious.com',
     subject: `Thank you for applying — ${jobTitle} at Revive Cafe`,
     html
   };
@@ -407,7 +442,7 @@ function buildRejectionEmail(data) {
   };
 }
 
-async function sendBulkRejections(applicants, jobTitle) {
+async function sendBulkRejections(applicants, jobTitle, replyTo) {
   const results = [];
   for (const applicant of applicants) {
     try {
@@ -416,6 +451,7 @@ async function sendBulkRejections(applicants, jobTitle) {
         applicantEmail: applicant.email,
         jobTitle
       });
+      emailPayload.reply_to = replyTo || DEFAULT_REPLY_TO;
       const result = await sendEmail(emailPayload);
       results.push({ id: applicant.id, success: true, emailId: result.id });
     } catch (err) {

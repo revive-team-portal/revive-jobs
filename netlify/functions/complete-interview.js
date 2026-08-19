@@ -96,7 +96,7 @@ exports.handler = async (event) => {
 
     // 5. Fetch job for email
     const jobRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,employer_name`
+      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,employer_name,employer_email`
     );
     const job = jobRes[0] || {};
 
@@ -112,7 +112,8 @@ exports.handler = async (event) => {
       applicantEmail: application.email,
       jobTitle: job.title,
       interviewTime: slotTime,
-      employerName: job.employer_name
+      employerName: job.employer_name,
+      replyTo: job.employer_email || 'jobs@revivealicious.com'
     });
 
     return {
@@ -163,7 +164,7 @@ async function supabasePatch(url, data) {
 // CONFIRMATION EMAIL
 // ============================================================
 
-async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, interviewTime, employerName }) {
+async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, interviewTime, employerName, replyTo }) {
   const html = `
 <!DOCTYPE html>
 <html>
@@ -217,6 +218,7 @@ async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, 
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: applicantEmail,
+      reply_to: replyTo || 'jobs@revivealicious.com',
       subject: `Interview Confirmed — ${jobTitle} at Revive Cafe`,
       html
     })
