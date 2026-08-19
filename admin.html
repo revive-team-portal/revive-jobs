@@ -210,100 +210,142 @@
         </div>
 
         <!-- Status Filter + Search -->
-        <div class="flex gap-2 mb-4 flex-wrap">
-          <input v-model="applicantSearch" placeholder="🔍 Search applicants..."
-            class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 focus:outline-none focus:ring-2 focus:border-transparent">
-          <select v-model="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
-            <option value="">All Status</option>
-            <option value="new">New</option>
-            <option value="shortlist_a">Shortlist A</option>
-            <option value="shortlist_b">Shortlist B</option>
-            <option value="interview">Interview</option>
-            <option value="hired">Hired</option>
-            <option value="not_suitable">Not Suitable</option>
-            <option value="not_hired">Not Hired</option>
-          </select>
-          <button @click="exportCSV" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-            ⬇ CSV
-          </button>
-          <button v-if="selectedForInterview.length" @click="sendInterviewInvites"
-            class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
-            <span v-if="sendingInvites" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            Send {{ selectedForInterview.length }} Interview Invite{{ selectedForInterview.length !== 1 ? 's' : '' }}
-          </button>
-          <button v-if="notSuitableSelected.length" @click="sendBulkRejection"
-            class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-            Send {{ notSuitableSelected.length }} Rejection{{ notSuitableSelected.length !== 1 ? 's' : '' }}
-          </button>
+        <div class="mb-4 space-y-3">
+          <!-- Search + actions row -->
+          <div class="flex gap-2 flex-wrap">
+            <input v-model="applicantSearch" placeholder="🔍 Search applicants..."
+              class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 focus:outline-none focus:ring-2 focus:border-transparent">
+            <button @click="showAddApplicant=true" class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">+ Add</button>
+            <button @click="exportCSV" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">⬇ CSV</button>
+            <button v-if="selectedForInterview.length" @click="sendInterviewInvites"
+              class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+              <span v-if="sendingInvites" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              Send {{ selectedForInterview.length }} Interview Invite{{ selectedForInterview.length !== 1 ? 's' : '' }}
+            </button>
+            <button v-if="notSuitableSelected.length" @click="sendBulkRejection"
+              class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+              Send {{ notSuitableSelected.length }} Rejection{{ notSuitableSelected.length !== 1 ? 's' : '' }}
+            </button>
+          </div>
+          <!-- Status filter pills (multi-select with counts) -->
+          <div class="flex flex-wrap gap-2">
+            <button @click="statusFilter=[]"
+              :class="statusFilter.length===0 ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'"
+              class="border border-gray-200 rounded-full px-3 py-1 text-xs font-semibold transition-colors">
+              All <span class="opacity-60">{{ applications.length }}</span>
+            </button>
+            <button v-for="s in [{key:'new',label:'New'},{key:'shortlist_a',label:'Shortlist A'},{key:'shortlist_b',label:'Shortlist B'},{key:'interview',label:'Interview'},{key:'hired',label:'Hired ✓'},{key:'not_suitable',label:'Not Suitable'},{key:'not_hired',label:'Not Hired'}]" :key="s.key"
+              @click="statusFilter.includes(s.key) ? statusFilter.splice(statusFilter.indexOf(s.key),1) : statusFilter.push(s.key)"
+              :class="statusFilter.includes(s.key) ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'"
+              class="border border-gray-200 rounded-full px-3 py-1 text-xs font-semibold transition-colors">
+              {{ s.label }} <span class="opacity-60">{{ applications.filter(a=>a.status===s.key).length }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Applicants table -->
         <div v-if="loadingApplicants" class="text-center py-12"><div class="inline-block w-8 h-8 border-4 rounded-full animate-spin" style="border-color:#40d134;border-top-color:transparent;"></div></div>
         <div v-else-if="filteredApplicants.length === 0" class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
-          <p class="text-gray-500">No applicants yet{{ statusFilter || applicantSearch ? ' matching your filter' : '' }}.</p>
+          <p class="text-gray-500">No applicants yet{{ statusFilter.length || applicantSearch ? ' matching your filter' : '' }}.</p>
         </div>
-        <div v-else class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Applicant</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs hidden md:table-cell">Details</th>
-                <th class="text-center px-3 py-3 font-semibold text-gray-600 text-xs">Suit.</th>
-                <th class="text-center px-3 py-3 font-semibold text-gray-600 text-xs">Human</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs hidden lg:table-cell">Employers</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs">Status</th>
-                <th class="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="app in filteredApplicants" :key="app.id"
-                class="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                @click="openApplicant(app)">
-                <td class="px-4 py-4">
-                  <div class="font-bold text-gray-900">{{ app.full_name }}</div>
-                  <div class="text-xs text-gray-500">{{ app.email }}</div>
-                  <div v-if="app.on_visa" class="text-xs mt-0.5 bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded inline-block">🌍 {{ app.visa_type }}</div>
-                  <div v-if="app.previous_apply_count > 1" class="text-xs mt-0.5 bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded inline-block">Applied {{ app.previous_apply_count }}x</div>
-                </td>
-                <td class="px-4 py-4 hidden md:table-cell">
-                  <div class="text-xs text-gray-600">{{ app.location || '—' }}</div>
-                  <div class="text-xs text-gray-400 mt-0.5">{{ formatReferral(app.referral_source) }}</div>
-                  <div class="text-xs text-gray-400 mt-0.5">{{ timeAgo(app.created_at) }}</div>
-                </td>
-                <td class="px-3 py-4 text-center">
+        <div v-else class="space-y-3">
+          <div v-for="app in filteredApplicants" :key="app.id"
+            class="bg-white rounded-xl border border-gray-200 p-4 hover:border-brand transition-colors">
+
+            <!-- Row 1: status (left) + name + scores -->
+            <div class="flex items-start gap-3 mb-2">
+              <!-- Status LEFT -->
+              <div class="shrink-0 pt-0.5">
+                <select v-model="app.status" @change="updateStatus(app)"
+                  class="border-2 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:border-transparent cursor-pointer"
+                  :class="statusSelectClass(app.status)"
+                  style="min-width:130px">
+                  <option value="new">New</option>
+                  <option value="not_suitable">Not Suitable</option>
+                  <option value="shortlist_a">Shortlist A</option>
+                  <option value="shortlist_b">Shortlist B</option>
+                  <option value="interview">Interview</option>
+                  <option value="hired">Hired ✓</option>
+                  <option value="not_hired">Not Hired</option>
+                </select>
+              </div>
+              <!-- Name + details -->
+              <div class="flex-1 min-w-0 cursor-pointer" @click="openApplicant(app)">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-bold text-gray-900 text-base">{{ app.full_name }}</span>
+                  <span v-if="app.on_visa" class="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full">🌍 {{ app.visa_type }}</span>
+                  <span v-if="app.previous_apply_count > 1" class="text-xs bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full">Applied {{ app.previous_apply_count }}x</span>
+                  <span v-if="app.rejection_sent" title="Rejection email sent" class="text-xs bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-full">✉ Rejected</span>
+                  <span class="text-xs text-gray-400">{{ timeAgo(app.created_at) }}</span>
+                </div>
+                <div class="flex flex-wrap gap-3 mt-0.5 text-xs text-gray-500">
+                  <span>{{ app.email }}</span>
+                  <span v-if="app.phone">· {{ app.phone }}</span>
+                  <span v-if="app.location">· {{ app.location }}</span>
+                  <span v-if="app.referral_source">· via {{ formatReferral(app.referral_source) }}</span>
+                </div>
+              </div>
+              <!-- Scores RIGHT -->
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="text-center">
+                  <div class="text-xs text-gray-400 mb-0.5">Suit.</div>
                   <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
                   <span v-else class="text-gray-300 text-xs">—</span>
-                </td>
-                <td class="px-3 py-4 text-center">
+                </div>
+                <div class="text-center">
+                  <div class="text-xs text-gray-400 mb-0.5">Human</div>
                   <span v-if="app.ai_score" class="score-badge" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
                   <span v-else class="text-gray-300 text-xs">—</span>
-                </td>
-                <td class="px-4 py-4 hidden lg:table-cell">
-                  <div class="text-xs text-gray-600 max-w-xs truncate">{{ app.previous_employers || '—' }}</div>
-                </td>
-                <td class="px-4 py-4">
-                  <select v-model="app.status" @click.stop @change="updateStatus(app)"
-                    class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:border-transparent w-full"
-                    :class="statusSelectClass(app.status)">
-                    <option value="new">New</option>
-                    <option value="not_suitable">Not Suitable</option>
-                    <option value="shortlist_a">Shortlist A</option>
-                    <option value="shortlist_b">Shortlist B</option>
-                    <option value="interview">Interview</option>
-                    <option value="hired">Hired ✓</option>
-                    <option value="not_hired">Not Hired</option>
-                  </select>
-                </td>
-                <td class="px-4 py-4">
-                  <div class="flex gap-1">
-                    <button @click.stop="viewResume(app)" v-if="app.resume_url" title="View Resume"
-                      class="text-gray-400 hover:text-brand p-1.5 rounded transition-colors bg-gray-50 hover:bg-brand-pale">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 2: AI summary + notes -->
+            <div v-if="app.cv_summary || app.ai_analysis_notes" class="text-xs text-gray-600 leading-relaxed mb-2 cursor-pointer" @click="openApplicant(app)">
+              <span v-if="app.cv_summary" class="font-medium text-gray-700">{{ app.cv_summary }}</span>
+              <span v-if="app.cv_summary && app.ai_analysis_notes" class="text-gray-300"> · </span>
+              <span v-if="app.ai_analysis_notes" class="text-gray-400 italic">{{ app.ai_analysis_notes }}</span>
+            </div>
+
+            <!-- Row 3: specs + CV link -->
+            <div class="flex flex-wrap items-center gap-3 mb-2 text-xs">
+              <span v-if="app.nationality && app.nationality !== 'Not stated'" class="text-gray-500">🌐 <span class="font-medium">{{ app.nationality }}</span></span>
+              <span v-if="app.previous_employers && app.previous_employers !== 'Not listed'" class="text-gray-500">💼 {{ app.previous_employers }}</span>
+              <button v-if="app.resume_url" @click="openResumeInViewer(app)"
+                class="flex items-center gap-1 text-brand hover:text-brand-dark font-semibold bg-brand-pale hover:bg-green-100 px-2.5 py-1 rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                {{ app.resume_filename || 'View CV' }}
+              </button>
+            </div>
+
+            <!-- Row 4: inline notes + actions -->
+            <div class="flex items-start gap-2">
+              <span class="text-xs text-gray-400 mt-2 shrink-0">Notes</span>
+              <textarea
+                :value="app.interview_notes_employer || ''"
+                @input="app.interview_notes_employer = $event.target.value"
+                @blur="saveInlineNote(app)"
+                @click.stop
+                rows="1"
+                placeholder="Add notes…"
+                class="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:border-brand resize-none overflow-hidden"
+                style="min-height:2rem"
+                @focus="$event.target.rows=3"
+                @blur.capture="$event.target.rows=1"
+              ></textarea>
+              <button @click.stop="uploadDocForApp(app)" title="Upload document"
+                class="shrink-0 text-gray-400 hover:text-brand p-1.5 rounded-lg border border-gray-200 hover:border-brand transition-colors mt-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              </button>
+              <button @click.stop="deleteApplication(app)" title="Delete application"
+                class="shrink-0 text-gray-300 hover:text-red-500 p-1.5 rounded-lg border border-gray-200 hover:border-red-200 transition-colors mt-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+              <input type="file" :ref="el => { if(el) fileInputRefs[app.id]=el }" @change="handleDocUpload($event, app)" class="hidden" accept=".pdf,.doc,.docx">
+            </div>
+
+          </div>
+        </div>            </tbody>
           </table>
         </div>
       </div>
@@ -779,6 +821,88 @@
   </div>
 
   <!-- ===== RESUME VIEWER MODAL ===== -->
+  <!-- Add Applicant Modal -->
+  <div v-if="showAddApplicant" class="modal-overlay" @click.self="showAddApplicant=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900">Add Applicant Manually</h2>
+        <button @click="showAddApplicant=false" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">First Name *</label>
+            <input v-model="addForm.first_name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">Last Name *</label>
+            <input v-model="addForm.last_name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        </div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Email *</label>
+          <input v-model="addForm.email" type="email" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Phone</label>
+          <input v-model="addForm.phone" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Location</label>
+          <input v-model="addForm.location" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Cover Letter / Notes</label>
+          <textarea v-model="addForm.cover_letter" rows="4" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand resize-none"></textarea></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Status</label>
+          <select v-model="addForm.status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
+            <option value="new">New</option><option value="shortlist_a">Shortlist A</option><option value="shortlist_b">Shortlist B</option><option value="interview">Interview</option>
+          </select></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">How did they hear about us?</label>
+          <select v-model="addForm.referral_source" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
+            <option value="other">Other / Not stated</option><option value="seek">Seek</option><option value="facebook">Facebook</option><option value="friend">Friend/Word of mouth</option>
+          </select></div>
+        <p v-if="addError" class="text-red-600 text-xs">{{ addError }}</p>
+      </div>
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+        <button @click="showAddApplicant=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button @click="submitAddApplicant" :disabled="addingApplicant"
+          class="px-5 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-semibold disabled:opacity-50">
+          {{ addingApplicant ? 'Adding…' : 'Add Applicant' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rejection Preview Modal -->
+  <div v-if="showRejectionPreview" class="modal-overlay" @click.self="showRejectionPreview=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900">Send Rejection Emails</h2>
+        <button @click="showRejectionPreview=false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Sending to {{ rejectionPreviewApplicants.length }} applicant{{ rejectionPreviewApplicants.length !== 1 ? 's' : '' }}:</h3>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="a in rejectionPreviewApplicants" :key="a.id"
+              class="text-xs bg-red-50 text-red-700 border border-red-100 rounded-full px-3 py-1">
+              {{ a.full_name }} &lt;{{ a.email }}&gt;
+            </span>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Email preview <span class="text-gray-400 font-normal">(shown for first recipient)</span>:</h3>
+          <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
+            <div class="text-xs text-gray-500">
+              <span class="font-semibold">Subject: </span>
+              <span>{{ (settings.email_rejection_subject || 'Re: Your application for ' + (selectedJob ? selectedJob.title : '')).replace('{{job_title}}', selectedJob ? selectedJob.title : '').replace('{{applicant_name}}', rejectionPreviewApplicants[0] ? rejectionPreviewApplicants[0].full_name : '') }}</span>
+            </div>
+            <hr class="border-gray-200">
+            <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ rejectionEmailPreview }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+        <button @click="showRejectionPreview=false"
+          class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button @click="confirmBulkRejection"
+          class="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
+          Send {{ rejectionPreviewApplicants.length }} Rejection{{ rejectionPreviewApplicants.length !== 1 ? 's' : '' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div v-if="showResumeModal" class="modal-overlay" @click.self="showResumeModal = false">
     <div class="modal-box max-w-4xl p-0 overflow-hidden">
       <div class="flex items-center justify-between p-4 border-b border-gray-200">
@@ -837,7 +961,7 @@ createApp({
 
     // Filters
     const jobFilter = ref('all');
-    const statusFilter = ref('');
+    const statusFilter = ref([]);
     const applicantSearch = ref('');
 
     // UI state
@@ -857,6 +981,14 @@ createApp({
     // Resume preview
     const resumePreviewHtml = ref(null);
     const loadingResume = ref(false);
+    const analysingApplicant = ref(false);
+    const showRejectionPreview = ref(false);
+    const rejectionPreviewApplicants = ref([]);
+    const showAddApplicant = ref(false);
+    const addingApplicant = ref(false);
+    const addError = ref('');
+    const addForm = ref({ first_name:'', last_name:'', email:'', phone:'', location:'', cover_letter:'', status:'new', referral_source:'other' });
+    const fileInputRefs = {};
     const resumeModalContent = ref('');
     const resumeModalType = ref('');
     const resumeModalFilename = ref('');
@@ -890,7 +1022,7 @@ createApp({
 
     const filteredApplicants = computed(() => {
       let list = [...applications.value];
-      if (statusFilter.value) list = list.filter(a => a.status === statusFilter.value);
+      if (statusFilter.value.length) list = list.filter(a => statusFilter.value.includes(a.status));
       if (applicantSearch.value) {
         const q = applicantSearch.value.toLowerCase();
         list = list.filter(a =>
@@ -901,6 +1033,12 @@ createApp({
         );
       }
       return list;
+    });
+
+    const rejectionEmailPreview = computed(() => {
+      const body = settings.value.email_rejection_body || 'Hi {{applicant_name}},\n\nThank you for applying for the {{job_title}} position at Revive Cafe. After careful consideration we will not be proceeding with your application at this time.\n\nWe wish you all the best in your job search.\n\nKind regards,\nRevive Cafe Team';
+      const name = rejectionPreviewApplicants.value[0]?.full_name || 'Applicant';
+      return body.replace(/\{\{applicant_name\}\}/g, name).replace(/\{\{job_title\}\}/g, selectedJob.value?.title || '');
     });
 
     const selectedForInterview = computed(() =>
@@ -1110,6 +1248,22 @@ createApp({
     }
 
     // ============ RESUME VIEWER ============
+    async function openResumeInViewer(app) {
+      if (!app.resume_url) return;
+      const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(app.resume_url, 3600);
+      if (!data?.signedUrl) return;
+      const ext = (app.resume_filename || '').split('.').pop().toLowerCase();
+      if (ext === 'pdf') {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        window.open('https://docs.google.com/viewer?url=' + encodeURIComponent(data.signedUrl), '_blank');
+      }
+    }
+
+    async function saveInlineNote(app) {
+      await sb.from('applications').update({ interview_notes_employer: app.interview_notes_employer || null }).eq('id', app.id);
+    }
+
     async function viewResume(app) {
       const filename = app.resume_filename || app.resume_url;
       if (!filename) return;
@@ -1194,11 +1348,16 @@ createApp({
       }
     }
 
-    async function sendBulkRejection() {
+    function sendBulkRejection() {
       const toReject = notSuitableSelected.value;
       if (!toReject.length) return;
-      if (!confirm(`Send rejection emails to ${toReject.length} applicant(s)?`)) return;
+      rejectionPreviewApplicants.value = toReject;
+      showRejectionPreview.value = true;
+    }
 
+    async function confirmBulkRejection() {
+      const toReject = rejectionPreviewApplicants.value;
+      showRejectionPreview.value = false;
       try {
         await fetch('/.netlify/functions/send-email', {
           method: 'POST',
@@ -1209,8 +1368,6 @@ createApp({
             jobTitle: selectedJob.value.title
           })
         });
-
-        // Mark as sent
         for (const app of toReject) {
           await sb.from('applications').update({ rejection_sent: true, rejection_sent_at: new Date().toISOString() }).eq('id', app.id);
           app.rejection_sent = true;
@@ -1317,6 +1474,58 @@ createApp({
       await sb.storage.from('jobs-gallery').remove([photo.filename]);
       await sb.from('gallery_photos').delete().eq('id', photo.id);
       galleryPhotos.value = galleryPhotos.value.filter(p => p.id !== photo.id);
+    }
+
+    // ============ DELETE / UPLOAD / ADD MANUAL ============
+    async function deleteApplication(app) {
+      if (!confirm(`Delete application from ${app.full_name}? This cannot be undone.`)) return;
+      await sb.from('applications').delete().eq('id', app.id);
+      applications.value = applications.value.filter(a => a.id !== app.id);
+    }
+
+    function uploadDocForApp(app) {
+      const input = fileInputRefs[app.id];
+      if (input) input.click();
+    }
+
+    async function handleDocUpload(event, app) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop();
+      const path = `${app.job_id}/${app.id}_${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from('jobs-resumes').upload(path, file, { upsert: true });
+      if (!error) {
+        await sb.from('applications').update({ resume_url: path, resume_filename: file.name }).eq('id', app.id);
+        app.resume_url = path;
+        app.resume_filename = file.name;
+      }
+      event.target.value = '';
+    }
+
+    async function submitAddApplicant() {
+      addError.value = '';
+      if (!addForm.value.first_name || !addForm.value.email) { addError.value = 'First name and email are required.'; return; }
+      addingApplicant.value = true;
+      try {
+        const { data, error } = await sb.from('applications').insert({
+          job_id: selectedJob.value.id,
+          full_name: addForm.value.first_name + ' ' + addForm.value.last_name,
+          email: addForm.value.email,
+          phone: addForm.value.phone || null,
+          location: addForm.value.location || null,
+          cover_letter: addForm.value.cover_letter || null,
+          status: addForm.value.status,
+          referral_source: addForm.value.referral_source
+        }).select('*').single();
+        if (error) throw error;
+        data.previous_apply_count = 1;
+        applications.value.unshift(data);
+        showAddApplicant.value = false;
+        addForm.value = { first_name:'', last_name:'', email:'', phone:'', location:'', cover_letter:'', status:'new', referral_source:'other' };
+        // Trigger AI scoring
+        fetch('/.netlify/functions/score-application', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({application_id: data.id}) }).catch(()=>{});
+      } catch(e) { addError.value = e.message; }
+      addingApplicant.value = false;
     }
 
     // ============ EXPORT ============
@@ -1487,7 +1696,7 @@ createApp({
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob,
       openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
-      sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection,
+      sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
       saveSettings, saveAllEmailTemplates,
       uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
