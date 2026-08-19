@@ -113,6 +113,24 @@ exports.handler = async (event) => {
   }
 
   const saved = (await res.json().catch(() => []))[0] || {};
+
+  // Score and extract key facts now, so the tile is useful the moment it lands.
+  // Never let this hold up or fail the applicant's submission.
+  if (saved.id) {
+    try {
+      await Promise.race([
+        fetch(`${process.env.URL || 'https://jobs.revive.co.nz'}/.netlify/functions/analyse-application`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ application_id: saved.id })
+        }),
+        new Promise(r => setTimeout(r, 7000))
+      ]);
+    } catch (err) {
+      console.error('Post-submit analysis failed (application still saved)', err);
+    }
+  }
+
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: saved.id || null }) };
 };
 
