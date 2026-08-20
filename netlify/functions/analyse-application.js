@@ -166,7 +166,8 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "recent_jobs": [ { "company": "<name>", "position": "<title>", "dates": "<e.g. 2022-2024, else null>", "country": "<else null>" } ],
   "previous_employers": "<Company (Role), Company (Role) — earlier roles, else null>",
   "cv_summary": "<one sentence, factual, about their background>",
-  "ai_notes": "<1-2 sentences explaining the ai_score>"${''}${hasImage ? ',\n  "ocr_text": "<the CV text transcribed from the image, verbatim, preserving line breaks. Transcribe only - do not summarise, correct or add anything. Empty string if the image is not a CV>"' : ''}
+  "ai_notes": "<1-2 sentences explaining the ai_score>"${hasImage ? `,
+  "ocr_text": "<the CV text transcribed from the image, verbatim. Use \\n for line breaks. Transcribe only - do not summarise, correct or add anything. Empty string if the image is not a CV>"` : ''}
 }
 
 HOW TO SCORE SUITABILITY (do this carefully — it is the most important output):
@@ -218,7 +219,9 @@ EXTRACTION RULES — these matter more than the scores:
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 1024,
+      // Transcribing a whole CV needs far more room than the scores alone;
+      // at 1024 the JSON was being truncated and failing to parse.
+      max_tokens: hasImage ? 4096 : 1024,
       messages: [{
         role: 'user',
         content: (attachments && attachments.length)
