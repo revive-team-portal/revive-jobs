@@ -43,7 +43,7 @@ exports.handler = async (event) => {
   try {
     // 1. Verify token is valid and application exists
     const appRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,job_id,extended_form_completed`
+      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed`
     );
 
     if (!appRes.length) {
@@ -78,9 +78,21 @@ exports.handler = async (event) => {
     }
 
     // 4. Save extended form data to application
+    const settings = await supabaseGet(
+      `${SUPABASE_URL}/rest/v1/settings?key=in.(interview_form_questions,declarations_text)&select=key,value`
+    );
+    const settingsMap = {};
+    (settings || []).forEach(r => { settingsMap[r.key] = r.value; });
+    const questionList = (settingsMap.interview_form_questions || '')
+      .split('\n').map(q => q.trim()).filter(Boolean);
+    const declarationList = (settingsMap.declarations_text || '')
+      .split('\n').map(d => d.trim()).filter(Boolean);
+
+    // Store the question text alongside the answer, so the record still makes
+    // sense if the questions are edited later.
     const questionAnswers = {};
     (answers || []).forEach((ans, i) => {
-      questionAnswers[`q${i + 1}`] = { answer: ans };
+      questionAnswers[`q${i + 1}`] = { question: questionList[i] || `Question ${i + 1}`, answer: ans };
     });
 
     await supabasePatch(
@@ -94,7 +106,7 @@ exports.handler = async (event) => {
       }
     );
 
-    // 5. Fetch job for email
+    // 5. Fetch job for the email and the PDF
     const jobRes = await supabaseGet(
       `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
     );
@@ -130,6 +142,16 @@ exports.handler = async (event) => {
       if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
     } catch (err) {
       console.error('Interview confirmation email threw (booking still saved)', err);
+    }
+
+    // 7. Build a one-page PDF of the completed application and attach it to
+    // their documents, so the whole application is one printable record.
+    try {
+      await attachApplicationPdf({
+        application, job, slotTime, questionAnswers, declarationList
+      });
+    } catch (err) {
+      console.error('Application PDF failed (booking still saved)', err);
     }
 
     return {
@@ -250,4 +272,106 @@ function interviewLocation(job) {
       : 'Zoom / Meet video call — we will email you the link';
   }
   return job.interview_location_detail || '24 Wyndham St, Auckland CBD';
+}
+
+
+// ============================================================
+// APPLICATION PDF
+// ============================================================
+const { buildPdf } = require('./_pdf');
+
+function labelFor(map, value, fallback) {
+  return map[value] || value || fallback || '';
+}
+
+async function attachApplicationPdf({ application, job, slotTime, questionAnswers, declarationList }) {
+  const workRights = labelFor({
+    citizen: 'NZ / Australian Citizen', resident: 'NZ Permanent Resident',
+    work_visa: 'Work Visa', student_visa: 'Student Visa', other: 'Other'
+  }, application.work_rights, 'Not stated');
+
+  const referral = labelFor({
+    seek: 'Seek', instagram: 'Instagram', facebook: 'Facebook', friend: 'Friend / word of mouth',
+    walked_past: 'Walked past the cafe', backpacker_board: 'Backpacker Board', other: 'Other'
+  }, application.referral_source, 'Not stated');
+
+  const blocks = [];
+  blocks.push({ text: 'Revive Cafe - Employment Application', style: 'title' });
+  blocks.push({ text: [application.full_name, application.email, application.phone].filter(Boolean).join('  |  '), style: 'body' });
+  blocks.push({ style: 'rule' });
+
+  blocks.push({ text: 'POSITION & INTERVIEW', style: 'heading' });
+  blocks.push({ text: 'Applied for: ' + (job.title || '') + (job.type ? ' (' + job.type.replace(/_/g, ' ') + ')' : ''), style: 'body' });
+  blocks.push({ text: 'Applied on: ' + formatNZ(application.created_at), style: 'body' });
+  blocks.push({ text: 'Interview: ' + (slotTime || '') + ' - ' + interviewLocation(job), style: 'body' });
+  blocks.push({ style: 'space', h: 5 });
+
+  blocks.push({ text: 'APPLICANT DETAILS', style: 'heading' });
+  const details = [
+    ['Location', application.location],
+    ['Nationality', application.nationality],
+    ['Right to work', workRights + (application.work_rights_detail ? ' - ' + application.work_rights_detail : '')],
+    ['Visa', application.on_visa
+      ? [application.visa_type, application.visa_country, application.visa_conditions].filter(Boolean).join(', ')
+      : null],
+    ['Heard about us via', referral]
+  ].filter(([, v]) => v);
+  details.forEach(([k, v]) => blocks.push({ text: k + ': ' + v, style: 'body' }));
+  blocks.push({ style: 'space', h: 5 });
+
+  if (application.cover_letter && application.cover_letter.trim()) {
+    blocks.push({ text: 'COVER LETTER', style: 'heading' });
+    blocks.push({ text: application.cover_letter.trim(), style: 'body' });
+    blocks.push({ style: 'space', h: 5 });
+  }
+
+  blocks.push({ text: 'APPLICATION FORM', style: 'heading' });
+  Object.keys(questionAnswers).forEach(k => {
+    const qa = questionAnswers[k];
+    blocks.push({ text: qa.question, style: 'label' });
+    blocks.push({ text: (qa.answer && String(qa.answer).trim()) || 'No answer given', style: 'body' });
+    blocks.push({ style: 'space', h: 2.5 });
+  });
+
+  blocks.push({ style: 'rule' });
+  blocks.push({ text: 'DECLARATIONS - agreed ' + formatNZ(new Date().toISOString()), style: 'heading' });
+  (declarationList || []).forEach(d => {
+    blocks.push({ text: '- ' + d, style: 'body' });
+    blocks.push({ style: 'space', h: 2 });
+  });
+  blocks.push({ text: 'Agreed electronically by ' + application.full_name + ' via the Revive Cafe interview booking form.', style: 'body' });
+
+  const pdf = buildPdf(blocks, { title: 'Application - ' + application.full_name });
+
+  const safeName = String(application.full_name || 'applicant').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const path = `${application.job_id}/${application.id}_application-form.pdf`;
+  const filename = `Application Form - ${safeName}.pdf`;
+
+  const up = await fetch(`${SUPABASE_URL}/storage/v1/object/jobs-resumes/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      'Content-Type': 'application/pdf',
+      'x-upsert': 'true'
+    },
+    body: pdf
+  });
+  if (!up.ok) throw new Error('storage upload failed: ' + up.status + ' ' + await up.text().catch(() => ''));
+
+  // Add it to their documents without disturbing what they uploaded themselves.
+  const docs = Array.isArray(application.documents) ? application.documents.slice() : [];
+  const entry = { path, filename, size: pdf.length, kind: 'application_form' };
+  const existing = docs.findIndex(d => d && d.path === path);
+  if (existing >= 0) docs[existing] = entry; else docs.push(entry);
+
+  await supabasePatch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${application.id}`, { documents: docs });
+}
+
+function formatNZ(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-NZ', {
+    weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland'
+  });
 }
