@@ -48,7 +48,7 @@ exports.handler = async (event) => {
 
   // Confirm the job exists and is open before accepting an application.
   const jobRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status`,
+    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status,title,type,employer_email,employer_name`,
     { headers: svcHeaders() }
   );
   const jobs = await jobRes.json().catch(() => []);
@@ -113,13 +113,55 @@ exports.handler = async (event) => {
   }
 
   const saved = (await res.json().catch(() => []))[0] || {};
+  const job = jobs[0];
+
+  // Confirmation email. Wrapped so a mail failure can never lose the application.
+  if (saved.id) {
+    try {
+      const settings = await loadSettings(['company_history', 'company_benefits']);
+      const mail = await fetch(`${base()}/.netlify/functions/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'application_confirmation',
+          jobId: job_id,
+          applicantName: row.full_name,
+          applicantEmail: row.email,
+          applicantPhone: row.phone,
+          applicantLocation: row.location,
+          referralSource: row.referral_source,
+          jobTitle: job.title,
+          jobType: job.type,
+          onVisa: row.on_visa,
+          visaType: row.visa_type,
+          visaCountry: row.visa_country,
+          visaConditions: row.visa_conditions,
+          companyHistory: settings.company_history || '',
+          companyBenefits: settings.company_benefits || '',
+          employerEmail: job.employer_email,
+          employerName: job.employer_name
+        })
+      });
+      if (mail.ok) {
+        await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${encodeURIComponent(saved.id)}`, {
+          method: 'PATCH',
+          headers: { ...svcHeaders(), 'Content-Profile': 'jobs' },
+          body: JSON.stringify({ confirmation_sent: true })
+        });
+      } else {
+        console.error('Confirmation email failed', mail.status, await mail.text().catch(() => ''));
+      }
+    } catch (err) {
+      console.error('Confirmation email threw (application still saved)', err);
+    }
+  }
 
   // Score and extract key facts now, so the tile is useful the moment it lands.
   // Never let this hold up or fail the applicant's submission.
   if (saved.id) {
     try {
       await Promise.race([
-        fetch(`${process.env.URL || 'https://jobs.revive.co.nz'}/.netlify/functions/analyse-application`, {
+        fetch(`${base()}/.netlify/functions/analyse-application`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ application_id: saved.id })
@@ -133,6 +175,22 @@ exports.handler = async (event) => {
 
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: saved.id || null }) };
 };
+
+function base() {
+  return process.env.URL || 'https://jobs.revive.co.nz';
+}
+
+async function loadSettings(keys) {
+  const out = {};
+  try {
+    const q = keys.map(encodeURIComponent).join(',');
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(${q})&select=key,value`, { headers: svcHeaders() });
+    if (r.ok) (await r.json()).forEach(row => { out[row.key] = row.value; });
+  } catch (err) {
+    console.error('Could not load settings for confirmation email', err);
+  }
+  return out;
+}
 
 function svcHeaders() {
   return {
