@@ -51,7 +51,7 @@ exports.handler = async (event) => {
 
     // Fetch job details
     const jobRes = await supabaseQuery(
-      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=id,title,type,description,employer_name,interview_location_detail,interview_meeting_link`,
+      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=id,title,type,description,employer_name,interview_location_type,interview_location_detail,interview_meeting_link`,
       SUPABASE_SERVICE_KEY
     );
 

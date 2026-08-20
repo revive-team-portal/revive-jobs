@@ -363,20 +363,20 @@ createApp({
     }
 
     // Where the interview happens — per slot, with the job's address or meeting link.
-    function slotWhere(slot) {
-      if (!slot) return 'Available';
-      if (slot.location_type === 'video') return 'Video call';
-      if (slot.location_type === 'phone') return 'Phone call';
-      return 'In person';
+    // One interview format per job.
+    const isVideoInterview = computed(() => (job.value || {}).interview_location_type === 'video');
+
+    function slotWhere() {
+      return isVideoInterview.value ? 'Video call' : 'In person';
     }
 
-    function slotWhereFull(slot) {
-      if (!slot) return '';
+    function slotWhereFull() {
       const j = job.value || {};
-      if (slot.location_type === 'video') {
-        return j.interview_meeting_link ? 'Video call — link: ' + j.interview_meeting_link : 'Video call — we will email you the link';
+      if (isVideoInterview.value) {
+        return j.interview_meeting_link
+          ? 'Zoom / Meet video call — ' + j.interview_meeting_link
+          : 'Zoom / Meet video call — we will email you the link';
       }
-      if (slot.location_type === 'phone') return 'Phone call — we will call you';
       return 'In person — ' + (j.interview_location_detail || '24 Wyndham St, Auckland CBD');
     }
 
@@ -396,7 +396,7 @@ createApp({
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
-      goToStep2, submitForm, formatDate, formatTime, formatSlotFull, slotWhere, slotWhereFull
+      goToStep2, submitForm, formatDate, formatTime, formatSlotFull, slotWhere, slotWhereFull, isVideoInterview
     };
   }
 }).mount('#app');
