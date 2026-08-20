@@ -108,11 +108,45 @@ function styleOf(style, base) {
   return { size: base, bold: false, lead: base + 3, gapAfter: 0 };
 }
 
+// Left column holds the question, right column the answer.
+const COL_GAP = 12;
+const LEFT_FRACTION = 0.42;
+
 function layout(blocks, base, maxWidth) {
   const out = [];
+  const leftW = maxWidth * LEFT_FRACTION;
+  const rightW = maxWidth - leftW - COL_GAP;
+
   for (const b of blocks) {
     if (b.style === 'space') { out.push({ kind: 'space', h: b.h || 5 }); continue; }
     if (b.style === 'rule')  { out.push({ kind: 'rule', h: 7 }); continue; }
+
+    if (b.style === 'qa') {
+      // Wrap both sides, then emit paired rows so they stay side by side.
+      const qLines = wrap(b.question, base - 0.5, true, leftW);
+      const aLines = wrap(b.answer || '', base, false, rightW);
+      const rows = Math.max(qLines.length, aLines.length, 1);
+      for (let i = 0; i < rows; i++) {
+        out.push({
+          kind: 'qa', h: base + 3,
+          left: qLines[i] || '', right: aLines[i] || '',
+          leftSize: base - 0.5, rightSize: base, leftW, rightX: MARGIN + leftW + COL_GAP
+        });
+      }
+      continue;
+    }
+
+    if (b.style === 'tick') {
+      // A checkbox in the left margin with the declaration text beside it.
+      const indent = base + 6;
+      const lines = wrap(b.text, base, false, maxWidth - indent);
+      lines.forEach((t, i) => out.push({
+        kind: 'tick', h: base + 3.5, text: t, size: base,
+        box: i === 0, checked: !!b.checked, indent
+      }));
+      continue;
+    }
+
     const st = styleOf(b.style, base);
     const wrapped = wrap(b.text, st.size, st.bold, maxWidth);
     wrapped.forEach(t => out.push({ kind: 'text', text: t, size: st.size, bold: st.bold, h: st.lead }));
@@ -144,6 +178,33 @@ function contentStream(lines) {
       y -= l.h;
       parts.push('BT /' + (l.bold ? 'F2' : 'F1') + ' ' + l.size.toFixed(2) + ' Tf ' +
                  '1 0 0 1 ' + MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.text) + ') Tj ET');
+    } else if (l.kind === 'qa') {
+      y -= l.h;
+      if (l.left) {
+        parts.push('BT /F2 ' + l.leftSize.toFixed(2) + ' Tf 0.25 0.25 0.25 rg 1 0 0 1 ' +
+                   MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.left) + ') Tj ET 0 0 0 rg');
+      }
+      if (l.right) {
+        parts.push('BT /F1 ' + l.rightSize.toFixed(2) + ' Tf 1 0 0 1 ' +
+                   l.rightX.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.right) + ') Tj ET');
+      }
+    } else if (l.kind === 'tick') {
+      y -= l.h;
+      if (l.box) {
+        const bs = l.size * 0.82;               // box size
+        const by = y - 1;
+        parts.push('0.7 w 0.35 0.35 0.35 RG ' + MARGIN.toFixed(2) + ' ' + by.toFixed(2) + ' ' +
+                   bs.toFixed(2) + ' ' + bs.toFixed(2) + ' re S');
+        if (l.checked) {
+          const x1 = MARGIN + bs * 0.2, y1 = by + bs * 0.5;
+          const x2 = MARGIN + bs * 0.42, y2 = by + bs * 0.22;
+          const x3 = MARGIN + bs * 0.82, y3 = by + bs * 0.78;
+          parts.push('1.2 w 0.15 0.55 0.15 RG ' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' m ' +
+                     x2.toFixed(2) + ' ' + y2.toFixed(2) + ' l ' + x3.toFixed(2) + ' ' + y3.toFixed(2) + ' l S');
+        }
+      }
+      parts.push('BT /F1 ' + l.size.toFixed(2) + ' Tf 1 0 0 1 ' + (MARGIN + l.indent).toFixed(2) +
+                 ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.text) + ') Tj ET');
     } else if (l.kind === 'rule') {
       y -= l.h;
       parts.push('0.8 w 0.75 0.75 0.75 RG ' + MARGIN.toFixed(2) + ' ' + (y + 3).toFixed(2) + ' m ' +

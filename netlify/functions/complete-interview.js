@@ -44,7 +44,7 @@ exports.handler = async (event) => {
   try {
     // 1. Verify token is valid and application exists
     const appRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed,interview_notes,interview_slot_id`
+      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed,interview_notes,interview_slot_id,declarations_agreed,declarations_agreed_at`
     );
 
     if (!appRes.length) {
@@ -136,6 +136,7 @@ exports.handler = async (event) => {
       {
         interview_slot_id: slotId,
         declarations_agreed: true,
+        declarations_agreed_at: new Date().toISOString(),
         extended_form_completed: true,
         interview_notes: JSON.stringify(questionAnswers),
         status: 'interview'
@@ -337,45 +338,41 @@ async function attachApplicationPdf({ application, job, slotTime, questionAnswer
   blocks.push({ style: 'rule' });
 
   blocks.push({ text: 'POSITION & INTERVIEW', style: 'heading' });
-  blocks.push({ text: 'Applied for: ' + (job.title || '') + (job.type ? ' (' + job.type.replace(/_/g, ' ') + ')' : ''), style: 'body' });
-  blocks.push({ text: 'Applied on: ' + formatNZ(application.created_at), style: 'body' });
-  blocks.push({ text: 'Interview: ' + (slotTime || '') + ' - ' + interviewLocation(job), style: 'body' });
+  blocks.push({ style: 'qa', question: 'Applied for', answer: (job.title || '') + (job.type ? ' (' + String(job.type).replace(/_/g, ' ') + ')' : '') });
+  blocks.push({ style: 'qa', question: 'Application received', answer: formatNZ(application.created_at) });
+  if (slotTime) blocks.push({ style: 'qa', question: 'Interview', answer: slotTime + ' - ' + interviewLocation(job) });
   blocks.push({ style: 'space', h: 5 });
 
   blocks.push({ text: 'APPLICANT DETAILS', style: 'heading' });
-  const details = [
+  [
     ['Location', application.location],
     ['Nationality', application.nationality],
     ['Right to work', workRights + (application.work_rights_detail ? ' - ' + application.work_rights_detail : '')],
     ['Visa', application.on_visa
       ? [application.visa_type, application.visa_country, application.visa_conditions].filter(Boolean).join(', ')
-      : null],
+      : ''],
     ['Heard about us via', referral]
-  ].filter(([, v]) => v);
-  details.forEach(([k, v]) => blocks.push({ text: k + ': ' + v, style: 'body' }));
+  ].filter(([, v]) => v).forEach(([k, v]) => blocks.push({ style: 'qa', question: k, answer: v }));
   blocks.push({ style: 'space', h: 5 });
-
-  if (application.cover_letter && application.cover_letter.trim()) {
-    blocks.push({ text: 'COVER LETTER', style: 'heading' });
-    blocks.push({ text: application.cover_letter.trim(), style: 'body' });
-    blocks.push({ style: 'space', h: 5 });
-  }
 
   blocks.push({ text: 'APPLICATION FORM', style: 'heading' });
   Object.keys(questionAnswers).forEach(k => {
     const qa = questionAnswers[k];
-    blocks.push({ text: qa.question, style: 'label' });
-    blocks.push({ text: (qa.answer && String(qa.answer).trim()) || 'No answer given', style: 'body' });
-    blocks.push({ style: 'space', h: 2.5 });
+    // Blank answers stay blank — a printed form is easier to read with gaps
+    // than with "no answer" repeated down the page.
+    blocks.push({ style: 'qa', question: qa.question, answer: (qa.answer && String(qa.answer).trim()) || '' });
+    blocks.push({ style: 'space', h: 2 });
   });
 
   blocks.push({ style: 'rule' });
-  blocks.push({ text: 'DECLARATIONS - agreed ' + formatNZ(new Date().toISOString()), style: 'heading' });
+  const agreedAt = application.declarations_agreed_at || new Date().toISOString();
+  blocks.push({ text: 'DECLARATIONS', style: 'heading' });
+  blocks.push({ text: 'Agreed ' + formatNZ(agreedAt) + ' by ' + application.full_name + '.', style: 'body' });
+  blocks.push({ style: 'space', h: 3 });
   (declarationList || []).forEach(d => {
-    blocks.push({ text: '- ' + d, style: 'body' });
+    blocks.push({ style: 'tick', text: d, checked: application.declarations_agreed !== false });
     blocks.push({ style: 'space', h: 2 });
   });
-  blocks.push({ text: 'Agreed electronically by ' + application.full_name + ' via the Revive Cafe interview booking form.', style: 'body' });
 
   const pdf = buildPdf(blocks, { title: 'Application - ' + application.full_name });
 
