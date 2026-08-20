@@ -107,7 +107,7 @@ exports.handler = async (event) => {
     recent_jobs: analysis.recent_jobs,
     previous_employers: analysis.previous_employers,
     cv_summary: analysis.cv_summary,
-    ai_analysis_notes: analysis.ai_notes,
+    ai_analysis_notes: [analysis.fit_reasoning ? ('Fit: ' + analysis.fit_reasoning) : '', analysis.ai_notes ? ('Authenticity: ' + analysis.ai_notes) : ''].filter(Boolean).join('  \u00b7  ') || analysis.ai_notes,
     analysed_at: new Date().toISOString()
   };
   if (!app.visa_type && analysis.visa_type) patch.visa_type = analysis.visa_type;
@@ -129,7 +129,7 @@ async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription 
   const prompt = `You are a recruitment analyst for Revive Cafe, a plant-based cafe and food brand in Auckland, New Zealand.
 
 ROLE APPLIED FOR: ${jobTitle || 'Not specified'}
-${jobDescription ? `JOB DESCRIPTION:\n${stripHtml(jobDescription).substring(0, 800)}\n` : ''}
+${jobDescription ? `JOB DESCRIPTION:\n${stripHtml(jobDescription).substring(0, 1500)}\n` : ''}
 ${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : 'No CV supplied.\n'}
 ${coverLetter ? `COVER LETTER:\n${coverLetter.substring(0, 2000)}\n` : ''}
 ${answers ? `SCREENING QUESTIONS THE EMPLOYER ASKED, AND THEIR ANSWERS:\n${answers.substring(0, 2500)}\n` : ''}
@@ -137,6 +137,7 @@ ${answers ? `SCREENING QUESTIONS THE EMPLOYER ASKED, AND THEIR ANSWERS:\n${answe
 Return ONLY valid JSON with exactly this structure, no markdown and no explanation:
 
 {
+  "fit_reasoning": "<1-2 sentences: the role type and its 2-3 main needs, what this applicant has that matches, and the biggest gap>",
   "suitability_score": <integer 1-10>,
   "ai_score": <integer 1-10>,
   "nationality": "<nationality or citizenship if clearly stated, else null>",
@@ -150,11 +151,29 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "ai_notes": "<1-2 sentences explaining the ai_score>"
 }
 
-Weight the screening answers heavily for suitability — the employer chose those
-questions precisely because they matter for this role.
+HOW TO SCORE SUITABILITY (do this carefully — it is the most important output):
+STEP 1 — From the title and description, work out the ROLE TYPE and its 2-3 key requirements
+(e.g. front-of-house / barista / customer service; kitchen / food prep / chef; cleaning;
+delivery / driver; management; office/admin).
+STEP 2 — Write "fit_reasoning" FIRST, then score based on how much DIRECTLY RELEVANT, RECENT
+experience the applicant has for THAT role type.
 
-suitability_score: how well their background matches the role.
-9-10 exceptional match, 7-8 good with minor gaps, 5-6 moderate with notable gaps, 3-4 weak, 1-2 poor.
+suitability_score (1-10) — anchor to relevant experience, NOT to how polished the writing is:
+  9-10  Strong, recent experience in this exact role type; clearly meets the key requirements.
+  7-8   Solid experience in this or a closely related role (e.g. other cafe/hospitality
+        front-of-house for a front-of-house role); only minor gaps.
+  5-6   Some transferable experience, but not in this role type, or relevant experience that
+        is brief or dated.
+  3-4   Little relevant experience; would need significant training for this role.
+  1-2   No relevant experience, or a clear role mismatch (e.g. only kitchen experience for a
+        customer-facing role, or only front-of-house for a kitchen role).
+
+Directly relevant recent experience outweighs everything else. Do NOT inflate the score for a
+tidy CV, unrelated or senior roles, general enthusiasm, or strong screening answers on their own
+— a good answer with no relevant experience is a moderate match at best. Treat the screening
+answers as a strong SECONDARY signal that refines the score, not a replacement for real
+experience. Someone with a year in the same role type should clearly outscore someone whose
+experience is in a different type of role.
 
 ai_score: how genuinely human-written the application reads (higher = more human).
 9-10 clearly a real person — specific, natural voice, informal phrasing; 7-8 mostly human;
@@ -195,6 +214,7 @@ EXTRACTION RULES — these matter more than the scores:
   const a = JSON.parse(match[0]);
 
   return {
+    fit_reasoning: clean(a.fit_reasoning),
     suitability_score: clamp(a.suitability_score),
     ai_score: clamp(a.ai_score),
     nationality: clean(a.nationality),
