@@ -72,7 +72,15 @@ exports.handler = async (event) => {
         .join('\n\n')
     : '';
 
-  if (!cvText && !coverLetter && !answers) {
+  // At submit time no text has been extracted yet — the browser does that later.
+  // Rather than analyse a CV we cannot read, send the PDF itself to the model.
+  let pdfDoc = null;
+  if (!cvText) {
+    const cvFile = docs.find(d => d && d.path && /\.pdf$/i.test(d.filename || d.path));
+    if (cvFile) pdfDoc = await fetchPdfBase64(cvFile.path);
+  }
+
+  if (!cvText && !coverLetter && !answers && !pdfDoc) {
     return { statusCode: 200, headers, body: JSON.stringify({ ok: false, reason: 'Nothing to analyse yet.' }) };
   }
 
@@ -90,7 +98,7 @@ exports.handler = async (event) => {
   // 4. Analyse
   let analysis;
   try {
-    analysis = await analyse({ cvText, coverLetter, answers, jobTitle, jobDescription });
+    analysis = await analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, pdfDoc });
   } catch (err) {
     console.error('Analysis failed', err);
     return { statusCode: 502, headers, body: JSON.stringify({ error: 'Analysis failed' }) };
@@ -125,12 +133,12 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch }) };
 };
 
-async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription }) {
+async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, pdfDoc }) {
   const prompt = `You are a recruitment analyst for Revive Cafe, a plant-based cafe and food brand in Auckland, New Zealand.
 
 ROLE APPLIED FOR: ${jobTitle || 'Not specified'}
 ${jobDescription ? `JOB DESCRIPTION:\n${stripHtml(jobDescription).substring(0, 1500)}\n` : ''}
-${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : 'No CV supplied.\n'}
+${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : (pdfDoc ? 'The applicant\'s CV is attached as a PDF document above. Read it.\n' : 'No CV supplied.\n')}
 ${coverLetter ? `COVER LETTER:\n${coverLetter.substring(0, 2000)}\n` : ''}
 ${answers ? `SCREENING QUESTIONS THE EMPLOYER ASKED, AND THEIR ANSWERS:\n${answers.substring(0, 2500)}\n` : ''}
 
@@ -201,7 +209,13 @@ EXTRACTION RULES — these matter more than the scores:
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{
+        role: 'user',
+        content: pdfDoc
+          ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfDoc } },
+             { type: 'text', text: prompt }]
+          : prompt
+      }]
     })
   });
 
@@ -254,6 +268,22 @@ function cleanJobs(v) {
     country: clean(j && j.country)
   })).filter(j => j.company || j.position);
   return out.length ? out : null;
+}
+
+// Pull a stored CV out of the bucket as base64 so it can be sent to the model.
+async function fetchPdfBase64(path) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/jobs-resumes/${path}`, {
+      headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` }
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > 4 * 1024 * 1024) return null;   // keep the request sane
+    return buf.toString('base64');
+  } catch (err) {
+    console.error('Could not read CV for analysis', err);
+    return null;
+  }
 }
 
 function stripHtml(h) {
