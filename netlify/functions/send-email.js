@@ -179,18 +179,24 @@ async function resolveReplyTo(data) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
-  }
-
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json'
   };
 
+  // The CORS preflight must be answered before the method check, otherwise the
+  // browser gets a 405 and blocks the real request. The admin is on
+  // team.revive.co.nz calling this on jobs.revive.co.nz, so every call is
+  // cross-origin and preflighted.
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   let data;
