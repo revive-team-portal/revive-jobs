@@ -134,7 +134,7 @@
                   selectedSlotId === slot.id ? 'selected' : ''
                 ]">
                 <div class="text-base font-bold">{{ formatTime(slot.slot_time) }}</div>
-                <div class="text-xs mt-0.5 opacity-75">{{ slot.is_booked ? 'Taken' : 'Available' }}</div>
+                <div class="text-xs mt-0.5 opacity-75">{{ slot.is_booked ? 'Taken' : slotWhere(slot) }}</div>
               </button>
             </div>
           </div>
@@ -161,6 +161,7 @@
           <div>
             <p class="font-bold text-gray-800 text-sm">Interview Time Selected</p>
             <p style="color:#40d134;" class="font-semibold text-sm">{{ formatSlotFull(selectedSlot) }}</p>
+            <p v-if="selectedSlot" class="text-xs text-gray-500 mt-0.5">{{ slotWhereFull(selectedSlot) }}</p>
           </div>
         </div>
 
@@ -361,6 +362,24 @@ createApp({
       });
     }
 
+    // Where the interview happens — per slot, with the job's address or meeting link.
+    function slotWhere(slot) {
+      if (!slot) return 'Available';
+      if (slot.location_type === 'video') return 'Video call';
+      if (slot.location_type === 'phone') return 'Phone call';
+      return 'In person';
+    }
+
+    function slotWhereFull(slot) {
+      if (!slot) return '';
+      const j = job.value || {};
+      if (slot.location_type === 'video') {
+        return j.interview_meeting_link ? 'Video call — link: ' + j.interview_meeting_link : 'Video call — we will email you the link';
+      }
+      if (slot.location_type === 'phone') return 'Phone call — we will call you';
+      return 'In person — ' + (j.interview_location_detail || '24 Wyndham St, Auckland CBD');
+    }
+
     function formatSlotFull(slot) {
       if (!slot) return '';
       return new Date(slot.slot_time).toLocaleString('en-NZ', {
@@ -377,7 +396,7 @@ createApp({
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
-      goToStep2, submitForm, formatDate, formatTime, formatSlotFull
+      goToStep2, submitForm, formatDate, formatTime, formatSlotFull, slotWhere, slotWhereFull
     };
   }
 }).mount('#app');
