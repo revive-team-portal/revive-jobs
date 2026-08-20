@@ -36,14 +36,15 @@ exports.handler = async (event) => {
 
   const { token, slotId, answers, declarationsAgreed } = body;
 
-  if (!token || !slotId || !declarationsAgreed) {
+  // A PDF rebuild only needs the token — it does not create or change a booking.
+  if (!token || (!body.rebuildPdf && (!slotId || !declarationsAgreed))) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
   }
 
   try {
     // 1. Verify token is valid and application exists
     const appRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed`
+      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed,interview_notes,interview_slot_id`
     );
 
     if (!appRes.length) {
@@ -51,6 +52,41 @@ exports.handler = async (event) => {
     }
 
     const application = appRes[0];
+
+    // Rebuild the PDF for a form that was completed before PDFs existed, or
+    // after the questions were corrected. Does not touch the booking.
+    if (body.rebuildPdf) {
+      const s2 = await supabaseGet(
+        `${SUPABASE_URL}/rest/v1/settings?key=in.(interview_form_questions,declarations_text)&select=key,value`
+      );
+      const m2 = {}; (s2 || []).forEach(r => { m2[r.key] = r.value; });
+      const qs2 = (m2.interview_form_questions || '').split('\n').map(q => q.trim()).filter(Boolean);
+      const ds2 = (m2.declarations_text || '').split('\n').map(d => d.trim()).filter(Boolean);
+      let stored = {};
+      try { stored = JSON.parse(application.interview_notes || '{}'); } catch (e) {}
+      const qa2 = {};
+      Object.keys(stored).forEach(k => {
+        const idx = parseInt(String(k).replace(/\D/g, ''), 10) - 1;
+        qa2[k] = { question: (stored[k] && stored[k].question) || qs2[idx] || `Question ${idx + 1}`,
+                   answer: (stored[k] && stored[k].answer) || '' };
+      });
+      const j2 = await supabaseGet(
+        `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,interview_location_type,interview_location_detail,interview_meeting_link`
+      );
+      let when = '';
+      if (application.interview_slot_id) {
+        const sl = await supabaseGet(`${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${application.interview_slot_id}&select=slot_time`);
+        if (sl && sl[0]) when = new Date(sl[0].slot_time).toLocaleString('en-NZ', {
+          weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
+          hour12: true, timeZone: 'Pacific/Auckland'
+        });
+      }
+      await attachApplicationPdf({
+        application, job: (j2 && j2[0]) || {}, slotTime: when,
+        questionAnswers: qa2, declarationList: ds2
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, rebuilt: true }) };
+    }
 
     if (application.extended_form_completed) {
       return { statusCode: 409, headers, body: JSON.stringify({ error: 'Already completed' }) };
