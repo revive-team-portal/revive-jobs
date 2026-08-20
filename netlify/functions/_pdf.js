@@ -109,8 +109,8 @@ function styleOf(style, base) {
 }
 
 // Left column holds the question, right column the answer.
-const COL_GAP = 12;
-const LEFT_FRACTION = 0.42;
+const COL_GAP = 0;
+const LEFT_FRACTION = 0.40;
 
 function layout(blocks, base, maxWidth) {
   const out = [];
@@ -122,17 +122,19 @@ function layout(blocks, base, maxWidth) {
     if (b.style === 'rule')  { out.push({ kind: 'rule', h: 7 }); continue; }
 
     if (b.style === 'qa') {
-      // Wrap both sides, then emit paired rows so they stay side by side.
-      const qLines = wrap(b.question, base - 0.5, true, leftW);
-      const aLines = wrap(b.answer || '', base, false, rightW);
+      // One table row: bordered cells, question on a shaded left cell.
+      const padX = 5, padY = 3.2;
+      const qLines = wrap(b.question, base - 0.5, true, leftW - padX * 2);
+      const aLines = wrap(b.answer || '', base, false, maxWidth - leftW - padX * 2);
+      const lineH = base + 2.6;
       const rows = Math.max(qLines.length, aLines.length, 1);
-      for (let i = 0; i < rows; i++) {
-        out.push({
-          kind: 'qa', h: base + 3,
-          left: qLines[i] || '', right: aLines[i] || '',
-          leftSize: base - 0.5, rightSize: base, leftW, rightX: MARGIN + leftW + COL_GAP
-        });
-      }
+      out.push({
+        kind: 'row',
+        h: rows * lineH + padY * 2,
+        qLines, aLines, lineH, padX, padY,
+        leftW, rightW: maxWidth - leftW,
+        leftSize: base - 0.5, rightSize: base
+      });
       continue;
     }
 
@@ -178,16 +180,35 @@ function contentStream(lines) {
       y -= l.h;
       parts.push('BT /' + (l.bold ? 'F2' : 'F1') + ' ' + l.size.toFixed(2) + ' Tf ' +
                  '1 0 0 1 ' + MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.text) + ') Tj ET');
-    } else if (l.kind === 'qa') {
+    } else if (l.kind === 'row') {
+      const top = y;
       y -= l.h;
-      if (l.left) {
-        parts.push('BT /F2 ' + l.leftSize.toFixed(2) + ' Tf 0.25 0.25 0.25 rg 1 0 0 1 ' +
-                   MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.left) + ') Tj ET 0 0 0 rg');
+      const x0 = MARGIN, x1 = MARGIN + l.leftW, x2 = MARGIN + l.leftW + l.rightW;
+
+      // Shaded descriptor cell
+      parts.push('0.945 0.949 0.957 rg ' + x0.toFixed(2) + ' ' + y.toFixed(2) + ' ' +
+                 l.leftW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re f 0 0 0 rg');
+      // Cell borders
+      parts.push('0.5 w 0.804 0.827 0.855 RG ' +
+                 x0.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.leftW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S ' +
+                 x1.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.rightW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S');
+
+      let ty = top - l.padY;
+      for (let i = 0; i < Math.max(l.qLines.length, l.aLines.length); i++) {
+        ty -= l.lineH;
+        const baseline = ty + l.lineH * 0.24;
+        if (l.qLines[i]) {
+          parts.push('BT /F2 ' + l.leftSize.toFixed(2) + ' Tf 0.22 0.25 0.29 rg 1 0 0 1 ' +
+                     (x0 + l.padX).toFixed(2) + ' ' + baseline.toFixed(2) + ' Tm (' +
+                     escapePdf(l.qLines[i]) + ') Tj ET 0 0 0 rg');
+        }
+        if (l.aLines[i]) {
+          parts.push('BT /F1 ' + l.rightSize.toFixed(2) + ' Tf 1 0 0 1 ' +
+                     (x1 + l.padX).toFixed(2) + ' ' + baseline.toFixed(2) + ' Tm (' +
+                     escapePdf(l.aLines[i]) + ') Tj ET');
+        }
       }
-      if (l.right) {
-        parts.push('BT /F1 ' + l.rightSize.toFixed(2) + ' Tf 1 0 0 1 ' +
-                   l.rightX.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + escapePdf(l.right) + ') Tj ET');
-      }
+      void x2;
     } else if (l.kind === 'tick') {
       y -= l.h;
       if (l.box) {

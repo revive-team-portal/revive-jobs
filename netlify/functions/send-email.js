@@ -73,9 +73,9 @@ function renderTemplate(bodyText, values, headline, contactEmail) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-        <tr><td style="background:#40d134;padding:32px;text-align:center;">
-          <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
-          <span style="color:#ffffff;font-size:22px;font-weight:700;">${esc(headline)}</span>
+        <tr><td style="background:#40d134;padding:30px 32px 26px;text-align:center;">
+          <img src="https://jobs.revive.co.nz/images/revive-logo-white.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
+          <span style="color:#ffffff;font-size:21px;font-weight:700;letter-spacing:-0.2px;line-height:1.25;display:block;">${esc(headline)}</span>
         </td></tr>
         <tr><td style="padding:32px;">${blocks}</td></tr>
         <tr><td style="background:#fafafa;padding:24px 32px;text-align:center;border-top:1px solid #eee;">
@@ -288,7 +288,7 @@ function buildConfirmationEmail(data) {
         <!-- Header -->
         <tr>
           <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
+            <img src="https://jobs.revive.co.nz/images/revive-logo-white.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
             <span style="color:#ffffff;font-size:22px;font-weight:700;">Application Received!</span>
           </td>
         </tr>
@@ -393,7 +393,7 @@ function buildInterviewInviteEmail(data) {
         <!-- Header -->
         <tr>
           <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
+            <img src="https://jobs.revive.co.nz/images/revive-logo-white.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
             <span style="color:#ffffff;font-size:22px;font-weight:700;">🎉 You've been selected for an interview!</span>
           </td>
         </tr>
@@ -486,7 +486,7 @@ function buildInterviewConfirmationEmail(data) {
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <tr>
           <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
+            <img src="https://jobs.revive.co.nz/images/revive-logo-white.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
             <span style="color:#ffffff;font-size:22px;font-weight:700;">Interview Confirmed ✓</span>
           </td>
         </tr>
@@ -546,7 +546,7 @@ function buildRejectionEmail(data) {
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <tr>
           <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
+            <img src="https://jobs.revive.co.nz/images/revive-logo-white.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
             <span style="color:#ffffff;font-size:20px;font-weight:700;">Revive Cafe — Application Update</span>
           </td>
         </tr>
