@@ -250,7 +250,7 @@ async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, 
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <tr>
           <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://jobs.revive.co.nz/images/revive-logo-badge.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
+            <img src="https://jobs.revive.co.nz/images/revive-logo-ring.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
             <span style="color:#fff;font-size:22px;font-weight:700;">Interview Confirmed ✓</span>
           </td>
         </tr>
