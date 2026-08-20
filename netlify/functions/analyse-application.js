@@ -73,14 +73,22 @@ exports.handler = async (event) => {
     : '';
 
   // At submit time no text has been extracted yet — the browser does that later.
-  // Rather than analyse a CV we cannot read, send the PDF itself to the model.
-  let pdfDoc = null;
+  // Rather than analyse a CV we cannot read, hand the file itself to the model.
+  // Photographed and scanned CVs arrive as images and have no text layer at all,
+  // so this is also the only way they ever get read.
+  const attachments = [];
   if (!cvText) {
-    const cvFile = docs.find(d => d && d.path && /\.pdf$/i.test(d.filename || d.path));
-    if (cvFile) pdfDoc = await fetchPdfBase64(cvFile.path);
+    const readable = docs.filter(d => d && d.path && SUPPORTED.test(d.filename || d.path));
+    // CV first if we can tell, then anything else, capped to keep the call small.
+    readable.sort((a, b) => (b.kind === 'cv' ? 1 : 0) - (a.kind === 'cv' ? 1 : 0));
+    for (const d of readable.slice(0, 3)) {
+      const att = await fetchAttachment(d.path, d.filename);
+      if (att) attachments.push(att);
+    }
   }
+  const hasImage = attachments.some(a => a.type === 'image');
 
-  if (!cvText && !coverLetter && !answers && !pdfDoc) {
+  if (!cvText && !coverLetter && !answers && !attachments.length) {
     return { statusCode: 200, headers, body: JSON.stringify({ ok: false, reason: 'Nothing to analyse yet.' }) };
   }
 
@@ -98,7 +106,7 @@ exports.handler = async (event) => {
   // 4. Analyse
   let analysis;
   try {
-    analysis = await analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, pdfDoc });
+    analysis = await analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, attachments, hasImage });
   } catch (err) {
     console.error('Analysis failed', err);
     return { statusCode: 502, headers, body: JSON.stringify({ error: 'Analysis failed' }) };
@@ -119,6 +127,8 @@ exports.handler = async (event) => {
     analysed_at: new Date().toISOString()
   };
   if (!app.visa_type && analysis.visa_type) patch.visa_type = analysis.visa_type;
+  // Text read off a photographed CV becomes the CV text, so quotes and search work.
+  if (!app.resume_text && analysis.ocr_text) patch.resume_text = analysis.ocr_text;
 
   const upd = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -133,12 +143,12 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch }) };
 };
 
-async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, pdfDoc }) {
+async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, attachments, hasImage }) {
   const prompt = `You are a recruitment analyst for Revive Cafe, a plant-based cafe and food brand in Auckland, New Zealand.
 
 ROLE APPLIED FOR: ${jobTitle || 'Not specified'}
 ${jobDescription ? `JOB DESCRIPTION:\n${stripHtml(jobDescription).substring(0, 1500)}\n` : ''}
-${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : (pdfDoc ? 'The applicant\'s CV is attached as a PDF document above. Read it.\n' : 'No CV supplied.\n')}
+${cvText ? `CV / RESUME TEXT:\n${cvText.substring(0, 6000)}\n` : (attachments && attachments.length ? 'The applicant\'s CV is attached above. Read it carefully, including any photographed or scanned pages.\n' : 'No CV supplied.\n')}
 ${coverLetter ? `COVER LETTER:\n${coverLetter.substring(0, 2000)}\n` : ''}
 ${answers ? `SCREENING QUESTIONS THE EMPLOYER ASKED, AND THEIR ANSWERS:\n${answers.substring(0, 2500)}\n` : ''}
 
@@ -156,7 +166,7 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "recent_jobs": [ { "company": "<name>", "position": "<title>", "dates": "<e.g. 2022-2024, else null>", "country": "<else null>" } ],
   "previous_employers": "<Company (Role), Company (Role) — earlier roles, else null>",
   "cv_summary": "<one sentence, factual, about their background>",
-  "ai_notes": "<1-2 sentences explaining the ai_score>"
+  "ai_notes": "<1-2 sentences explaining the ai_score>"${''}${hasImage ? ',\n  "ocr_text": "<the CV text transcribed from the image, verbatim, preserving line breaks. Transcribe only - do not summarise, correct or add anything. Empty string if the image is not a CV>"' : ''}
 }
 
 HOW TO SCORE SUITABILITY (do this carefully — it is the most important output):
@@ -211,9 +221,11 @@ EXTRACTION RULES — these matter more than the scores:
       max_tokens: 1024,
       messages: [{
         role: 'user',
-        content: pdfDoc
-          ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfDoc } },
-             { type: 'text', text: prompt }]
+        content: (attachments && attachments.length)
+          ? attachments.map(a => a.type === 'image'
+              ? { type: 'image', source: { type: 'base64', media_type: a.media_type, data: a.data } }
+              : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } })
+              .concat([{ type: 'text', text: prompt }])
           : prompt
       }]
     })
@@ -239,7 +251,8 @@ EXTRACTION RULES — these matter more than the scores:
     recent_jobs: cleanJobs(a.recent_jobs),
     previous_employers: clean(a.previous_employers),
     cv_summary: clean(a.cv_summary),
-    ai_notes: clean(a.ai_notes)
+    ai_notes: clean(a.ai_notes),
+    ocr_text: typeof a.ocr_text === 'string' && a.ocr_text.trim().length > 40 ? a.ocr_text.trim() : null
   };
 }
 
@@ -270,8 +283,19 @@ function cleanJobs(v) {
   return out.length ? out : null;
 }
 
-// Pull a stored CV out of the bucket as base64 so it can be sent to the model.
-async function fetchPdfBase64(path) {
+const SUPPORTED = /\.(pdf|jpe?g|png|webp|gif)$/i;
+
+const MEDIA = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  png: 'image/png', webp: 'image/webp', gif: 'image/gif'
+};
+
+// Pull a stored document out of the bucket as base64 so it can be sent to the
+// model. PDFs go as documents; photos and scans go as images to be read.
+async function fetchAttachment(path, filename) {
+  const ext = String(filename || path).split('.').pop().toLowerCase();
+  const media = MEDIA[ext];
+  if (!media) return null;
   try {
     const res = await fetch(`${SUPABASE_URL}/storage/v1/object/jobs-resumes/${path}`, {
       headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` }
@@ -279,9 +303,9 @@ async function fetchPdfBase64(path) {
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > 4 * 1024 * 1024) return null;   // keep the request sane
-    return buf.toString('base64');
+    return { type: ext === 'pdf' ? 'document' : 'image', media_type: media, data: buf.toString('base64') };
   } catch (err) {
-    console.error('Could not read CV for analysis', err);
+    console.error('Could not read attachment for analysis', err);
     return null;
   }
 }
