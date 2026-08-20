@@ -128,6 +128,7 @@ async function buildFromTemplate(type, data) {
   const values = templateValues(data);
   const subject = fillTokens(settings[subjectKey] || '', values).trim();
   return {
+    from: FROM_EMAIL,
     to: data.applicantEmail,
     subject: subject || `Revive Cafe — ${data.jobTitle || 'Your application'}`,
     html: renderTemplate(body, values, headline)
@@ -572,6 +573,7 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
       if ((tpl.email_rejection_body || '').trim()) {
         const values = templateValues(data);
         emailPayload = {
+          from: FROM_EMAIL,
           to: applicant.email,
           subject: fillTokens(tpl.email_rejection_subject || '', values).trim() ||
                    `Your application to Revive Cafe — ${jobTitle}`,
