@@ -58,7 +58,7 @@ function fillTokens(text, values) {
 
 // Wrap the plain-text template body in the branded shell so edits in Settings
 // keep the Revive look without anyone having to write HTML.
-function renderTemplate(bodyText, values, headline) {
+function renderTemplate(bodyText, values, headline, contactEmail) {
   const filled = fillTokens(bodyText, values);
   const blocks = filled.split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(b => {
     if (/^-{3,}$/.test(b)) return '<hr style="border:none;border-top:1px solid #e5e5e5;margin:20px 0;">';
@@ -80,6 +80,7 @@ function renderTemplate(bodyText, values, headline) {
         <tr><td style="padding:32px;">${blocks}</td></tr>
         <tr><td style="background:#fafafa;padding:24px 32px;text-align:center;border-top:1px solid #eee;">
           <p style="margin:0;font-size:12px;color:#999;">Revive Cafe &middot; 24 Wyndham St, Auckland CBD</p>
+          <p style="margin:6px 0 0;font-size:12px;color:#999;">${esc(contactEmail)}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -109,6 +110,7 @@ function templateValues(data) {
     company_benefits: data.companyBenefits || '',
     interview_link: data.interviewLink || '',
     interview_time: data.interviewTime || '',
+    interview_location: data.interviewLocation || '',
     employer_name: data.employerName || 'The Revive Cafe Team',
     employer_email: data.employerEmail || 'jobs@revivealicious.com'
   };
@@ -134,7 +136,7 @@ function stripTags(h) {
 }
 
 // Returns { subject, html } from the stored template, or null to fall back.
-async function buildFromTemplate(type, data) {
+async function buildFromTemplate(type, data, replyTo) {
   const keys = TEMPLATE_KEYS[type];
   if (!keys) return null;
   const [subjectKey, bodyKey, headline] = keys;
@@ -142,12 +144,14 @@ async function buildFromTemplate(type, data) {
   const body = (settings[bodyKey] || '').trim();
   if (!body) return null;
   const values = templateValues(data);
+  // Any address shown in the body should match where replies actually go.
+  if (replyTo) values.employer_email = replyTo;
   const subject = fillTokens(settings[subjectKey] || '', values).trim();
   return {
     from: FROM_EMAIL,
     to: data.applicantEmail,
     subject: subject || `Revive Cafe — ${data.jobTitle || 'Your application'}`,
-    html: renderTemplate(body, values, headline)
+    html: renderTemplate(body, values, headline, values.employer_email)
   };
 }
 
@@ -210,7 +214,7 @@ exports.handler = async (event) => {
 
   try {
     const replyTo = await resolveReplyTo(data);
-    let emailPayload = await buildFromTemplate(type, data);
+    let emailPayload = await buildFromTemplate(type, data, replyTo);
 
     switch (type) {
       case 'application_confirmation':
@@ -599,7 +603,7 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
           to: applicant.email,
           subject: fillTokens(tpl.email_rejection_subject || '', values).trim() ||
                    `Your application to Revive Cafe — ${jobTitle}`,
-          html: renderTemplate(tpl.email_rejection_body, values, 'Your Application')
+          html: renderTemplate(tpl.email_rejection_body, values, 'Your Application', replyTo || DEFAULT_REPLY_TO)
         };
       } else {
         emailPayload = buildRejectionEmail(data);

@@ -96,7 +96,7 @@ exports.handler = async (event) => {
 
     // 5. Fetch job for email
     const jobRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,employer_name,employer_email`
+      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
     );
     const job = jobRes[0] || {};
 
@@ -107,14 +107,30 @@ exports.handler = async (event) => {
       timeZone: 'Pacific/Auckland'
     });
 
-    await sendConfirmationEmail({
-      applicantName: application.full_name,
-      applicantEmail: application.email,
-      jobTitle: job.title,
-      interviewTime: slotTime,
-      employerName: job.employer_name,
-      replyTo: job.employer_email || 'jobs@revivealicious.com'
-    });
+    // Route through send-email so this uses the editable Settings template and
+    // the same reply-to rules as every other email, rather than its own copy.
+    try {
+      const base = process.env.URL || 'https://jobs.revive.co.nz';
+      const res = await fetch(`${base}/.netlify/functions/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'interview_confirmation',
+          jobId: application.job_id,
+          employerEmail: job.employer_email,
+          applicantName: application.full_name,
+          applicantEmail: application.email,
+          jobTitle: job.title,
+          jobType: job.type,
+          interviewTime: slotTime,
+          employerName: job.employer_name,
+          interviewLocation: interviewLocation(job)
+        })
+      });
+      if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
+    } catch (err) {
+      console.error('Interview confirmation email threw (booking still saved)', err);
+    }
 
     return {
       statusCode: 200,
@@ -223,4 +239,15 @@ async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, 
       html
     })
   });
+}
+
+// Where the interview happens, as one line for the email.
+function interviewLocation(job) {
+  if (!job) return '';
+  if (job.interview_location_type === 'video') {
+    return job.interview_meeting_link
+      ? 'Zoom / Meet video call — ' + job.interview_meeting_link
+      : 'Zoom / Meet video call — we will email you the link';
+  }
+  return job.interview_location_detail || '24 Wyndham St, Auckland CBD';
 }
