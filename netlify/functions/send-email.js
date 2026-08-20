@@ -14,6 +14,126 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 // Replies go to the contact address set on the job. Resolved here, once, so no
 // caller can forget to pass it — give this function a jobId and it looks the
 // address up itself; an explicit employerEmail wins if one is supplied.
+// The Settings screen stores an editable subject and body for each email type,
+// with {{placeholder}} tokens. Those templates are the source of truth; the
+// hardcoded builders below are only a fallback if a template is missing.
+const TEMPLATE_KEYS = {
+  application_confirmation: ['email_confirmation_subject', 'email_confirmation_body', 'Application Received!'],
+  interview_invite: ['email_interview_subject', 'email_interview_body', 'Interview Invitation'],
+  interview_confirmation: ['email_interview_confirmation_subject', 'email_interview_confirmation_body', 'Interview Confirmed'],
+  rejection: ['email_rejection_subject', 'email_rejection_body', 'Your Application'],
+  bulk_rejection: ['email_rejection_subject', 'email_rejection_body', 'Your Application']
+};
+
+async function loadSettings(keys) {
+  const out = {};
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return out;
+  try {
+    const q = keys.map(encodeURIComponent).join(',');
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(${q})&select=key,value`, {
+      headers: {
+        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Accept-Profile': 'jobs'
+      }
+    });
+    if (r.ok) (await r.json()).forEach(row => { out[row.key] = row.value; });
+  } catch (err) {
+    console.error('Could not load email templates', err);
+  }
+  return out;
+}
+
+function esc(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function fillTokens(text, values) {
+  return String(text || '').replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (m, key) => {
+    const v = values[key];
+    return (v === null || v === undefined) ? '' : String(v);
+  });
+}
+
+// Wrap the plain-text template body in the branded shell so edits in Settings
+// keep the Revive look without anyone having to write HTML.
+function renderTemplate(bodyText, values, headline) {
+  const filled = fillTokens(bodyText, values);
+  const blocks = filled.split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(b => {
+    if (/^-{3,}$/.test(b)) return '<hr style="border:none;border-top:1px solid #e5e5e5;margin:20px 0;">';
+    const withBreaks = esc(b).replace(/\n/g, '<br>')
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#40d134;">$1</a>');
+    return `<p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 16px;">${withBreaks}</p>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Open Sans',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <tr><td style="background:#40d134;padding:32px;text-align:center;">
+          <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:50px;margin-bottom:12px;"><br>
+          <span style="color:#ffffff;font-size:22px;font-weight:700;">${esc(headline)}</span>
+        </td></tr>
+        <tr><td style="padding:32px;">${blocks}</td></tr>
+        <tr><td style="background:#fafafa;padding:24px 32px;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:12px;color:#999;">Revive Cafe &middot; 24 Wyndham St, Auckland CBD</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+// Values available to {{tokens}} in any template.
+function templateValues(data) {
+  const visaLines = data.onVisa
+    ? ['VISA TYPE: ' + (data.visaType || 'Not specified'),
+       'COUNTRY: ' + (data.visaCountry || 'Not specified'),
+       'CONDITIONS: ' + (data.visaConditions || 'None noted')].join('\n')
+    : '';
+  return {
+    applicant_name: data.applicantName || '',
+    applicant_email: data.applicantEmail || '',
+    applicant_phone: data.applicantPhone || 'Not provided',
+    applicant_location: data.applicantLocation || 'Not provided',
+    referral_source: formatReferral(data.referralSource),
+    job_title: data.jobTitle || '',
+    job_type: formatJobType(data.jobType),
+    job_description_summary: stripTags(data.jobDescription || '').slice(0, 400),
+    visa_info: visaLines,
+    company_history: data.companyHistory || '',
+    company_benefits: data.companyBenefits || '',
+    interview_link: data.interviewLink || '',
+    interview_time: data.interviewTime || '',
+    employer_name: data.employerName || 'The Revive Cafe Team',
+    employer_email: data.employerEmail || 'jobs@revivealicious.com'
+  };
+}
+
+function stripTags(h) {
+  return String(h || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Returns { subject, html } from the stored template, or null to fall back.
+async function buildFromTemplate(type, data) {
+  const keys = TEMPLATE_KEYS[type];
+  if (!keys) return null;
+  const [subjectKey, bodyKey, headline] = keys;
+  const settings = await loadSettings([subjectKey, bodyKey]);
+  const body = (settings[bodyKey] || '').trim();
+  if (!body) return null;
+  const values = templateValues(data);
+  const subject = fillTokens(settings[subjectKey] || '', values).trim();
+  return {
+    to: data.applicantEmail,
+    subject: subject || `Revive Cafe — ${data.jobTitle || 'Your application'}`,
+    html: renderTemplate(body, values, headline)
+  };
+}
+
 async function resolveReplyTo(data) {
   const explicit = (data.employerEmail || data.replyTo || '').trim();
   if (explicit) return explicit;
@@ -67,20 +187,20 @@ exports.handler = async (event) => {
 
   try {
     const replyTo = await resolveReplyTo(data);
-    let emailPayload;
+    let emailPayload = await buildFromTemplate(type, data);
 
     switch (type) {
       case 'application_confirmation':
-        emailPayload = buildConfirmationEmail(data);
+        if (!emailPayload) emailPayload = buildConfirmationEmail(data);
         break;
       case 'interview_invite':
-        emailPayload = buildInterviewInviteEmail(data);
+        if (!emailPayload) emailPayload = buildInterviewInviteEmail(data);
         break;
       case 'interview_confirmation':
-        emailPayload = buildInterviewConfirmationEmail(data);
+        if (!emailPayload) emailPayload = buildInterviewConfirmationEmail(data);
         break;
       case 'rejection':
-        emailPayload = buildRejectionEmail(data);
+        if (!emailPayload) emailPayload = buildRejectionEmail(data);
         break;
       case 'bulk_rejection':
         // Send multiple rejection emails
@@ -443,14 +563,23 @@ function buildRejectionEmail(data) {
 }
 
 async function sendBulkRejections(applicants, jobTitle, replyTo) {
+  const tpl = await loadSettings(['email_rejection_subject', 'email_rejection_body']);
   const results = [];
   for (const applicant of applicants) {
     try {
-      const emailPayload = buildRejectionEmail({
-        applicantName: applicant.full_name,
-        applicantEmail: applicant.email,
-        jobTitle
-      });
+      const data = { applicantName: applicant.full_name, applicantEmail: applicant.email, jobTitle };
+      let emailPayload;
+      if ((tpl.email_rejection_body || '').trim()) {
+        const values = templateValues(data);
+        emailPayload = {
+          to: applicant.email,
+          subject: fillTokens(tpl.email_rejection_subject || '', values).trim() ||
+                   `Your application to Revive Cafe — ${jobTitle}`,
+          html: renderTemplate(tpl.email_rejection_body, values, 'Your Application')
+        };
+      } else {
+        emailPayload = buildRejectionEmail(data);
+      }
       emailPayload.reply_to = replyTo || DEFAULT_REPLY_TO;
       const result = await sendEmail(emailPayload);
       results.push({ id: applicant.id, success: true, emailId: result.id });
