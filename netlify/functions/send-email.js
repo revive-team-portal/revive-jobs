@@ -103,6 +103,7 @@ function templateValues(data) {
     job_title: data.jobTitle || '',
     job_type: formatJobType(data.jobType),
     job_description_summary: stripTags(data.jobDescription || '').slice(0, 400),
+    job_description: htmlToText(data.jobDescription || ''),
     visa_info: visaLines,
     company_history: data.companyHistory || '',
     company_benefits: data.companyBenefits || '',
@@ -111,6 +112,21 @@ function templateValues(data) {
     employer_name: data.employerName || 'The Revive Cafe Team',
     employer_email: data.employerEmail || 'jobs@revivealicious.com'
   };
+}
+
+// The job description is rich text from the admin editor. Convert it to readable
+// plain text so it drops into an email template without raw tags showing.
+function htmlToText(h) {
+  return String(h || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n\n')
+    .replace(/<li[^>]*>/gi, '\u2022 ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function stripTags(h) {

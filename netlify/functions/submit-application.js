@@ -48,7 +48,7 @@ exports.handler = async (event) => {
 
   // Confirm the job exists and is open before accepting an application.
   const jobRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status,title,type,employer_email,employer_name`,
+    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status,title,type,description,employer_email,employer_name`,
     { headers: svcHeaders() }
   );
   const jobs = await jobRes.json().catch(() => []);
@@ -132,6 +132,7 @@ exports.handler = async (event) => {
           referralSource: row.referral_source,
           jobTitle: job.title,
           jobType: job.type,
+          jobDescription: job.description,
           onVisa: row.on_visa,
           visaType: row.visa_type,
           visaCountry: row.visa_country,
