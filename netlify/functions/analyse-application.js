@@ -165,7 +165,7 @@ Return ONLY valid JSON with exactly this structure, no markdown and no explanati
   "countries_worked": "<comma-separated countries they have WORKED in, most recent first, else null>",
   "recent_jobs": [ { "company": "<name>", "position": "<title>", "dates": "<e.g. 2022-2024, else null>", "country": "<else null>" } ],
   "previous_employers": "<Company (Role), Company (Role) — earlier roles, else null>",
-  "cv_summary": "<one sentence, factual, about their background>",
+  "cv_summary": "<2-4 sentences summarising what their CV actually shows. See CV SUMMARY RULES below>",
   "ai_notes": "<1-2 sentences explaining the ai_score>"${hasImage ? `,
   "ocr_text": "<the CV text transcribed from the image, verbatim. Use \\n for line breaks. Transcribe only - do not summarise, correct or add anything. Empty string if the image is not a CV>"` : ''}
 }
@@ -203,6 +203,24 @@ EXTRACTION RULES — these matter more than the scores:
 - Do not use placeholder strings like "Not stated", "Unknown" or "N/A". Use null.
 - last_company and last_position must be the MOST RECENT role only. Put earlier roles in previous_employers.
 - nationality means citizenship or stated nationality, not the city they live in.
+
+CV SUMMARY RULES — this is the most useful thing you produce, so get it right:
+- 2-4 sentences of substance about what the CV shows. Write it for a busy hiring
+  manager deciding whether to interview this person.
+- DO NOT repeat anything already captured in the fields above. Their nationality,
+  visa, countries worked, most recent employer and most recent job title are all
+  displayed separately. Repeating them wastes the space.
+- DO cover, where the CV shows it: how long they have worked in this kind of role
+  and at what level; the size/type of venues (fine dining, high-volume cafe, hotel,
+  QSR); specific skills and systems (barista, POS, rostering, stock, food safety,
+  supervising or training others); qualifications and languages; and career
+  trajectory — are they progressing, sideways, or stepping down?
+- Be concrete. "Ran a 12-person section across two sites" beats "strong leadership
+  skills". Prefer what they DID over adjectives about them.
+- Note anything a manager would want to raise at interview: gaps, very short
+  stints, a career change, or a CV with no dates.
+- If the CV is thin or unreadable, say so plainly in one sentence rather than
+  padding it out.
 - countries_worked: only countries where they actually held a job. Infer the country from
   an employer's location when it is clear (e.g. "Cafe in Sydney" implies Australia). Do not
   include countries they only studied in, travelled to, or hold a passport for. If every role
