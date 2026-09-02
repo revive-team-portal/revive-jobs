@@ -122,11 +122,13 @@ ${known}
 ${app.cover_letter ? `COVER LETTER:\n${String(app.cover_letter).substring(0, 1500)}\n` : ''}
 ${cvText ? `CV TEXT:\n${cvText.substring(0, 6000)}` : 'Their CV is attached above - read it.'}
 
-QUESTIONS (answer by number):
-${askable.map(({ i, q }) => `${i}. ${q}`).join('\n')}
+QUESTIONS:
+${askable.map(({ q }) => `- ${q}`).join('\n')}
 
-Return ONLY valid JSON, no markdown:
-{ "<question number>": "<your answer>", ... }
+Return ONLY valid JSON, no markdown. Repeat each question EXACTLY as written above
+so there is no doubt which one you are answering, and include only the ones you
+can genuinely answer:
+{ "answers": [ { "question": "<the question, copied exactly>", "answer": "<your answer>" } ] }
 
 RULES - these matter more than being helpful:
 - Omit a question entirely if the CV and application do not answer it. A wrong
@@ -164,16 +166,22 @@ RULES - these matter more than being helpful:
     if (!match) throw new Error('no JSON in response');
 
     const raw = JSON.parse(match[0]);
+    const list = Array.isArray(raw.answers) ? raw.answers : [];
+
+    // Match on the question text, not a number. Numbered keys let the model
+    // drift and attach an answer to the wrong question, which on an employment
+    // form is worse than leaving it blank.
+    const norm = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const byText = new Map(askable.map(a => [norm(a.q), a.i]));
+
     const prefill = {};
-    const allowed = new Set(askable.map(a => String(a.i)));
-    Object.keys(raw).forEach(k => {
-      const key = String(parseInt(k, 10));
-      if (!allowed.has(key)) return;
-      const v = raw[k];
-      if (typeof v !== 'string') return;
-      const clean = v.trim();
-      if (!clean || /^(unknown|n\/?a|not stated|not specified)$/i.test(clean)) return;
-      prefill[key] = clean.slice(0, 600);
+    list.forEach(item => {
+      if (!item || typeof item.answer !== 'string') return;
+      const idx = byText.get(norm(item.question));
+      if (idx === undefined) return;              // unrecognised question — drop it
+      const clean = item.answer.trim();
+      if (!clean || /^(unknown|n\/?a|not stated|not specified|none)$/i.test(clean)) return;
+      prefill[String(idx)] = clean.slice(0, 600);
     });
 
     return { statusCode: 200, headers, body: JSON.stringify({ prefill }) };
