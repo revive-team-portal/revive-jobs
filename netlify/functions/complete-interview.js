@@ -36,8 +36,8 @@ exports.handler = async (event) => {
 
   const { token, slotId, answers, declarationsAgreed } = body;
 
-  // A PDF rebuild only needs the token — it does not create or change a booking.
-  if (!token || (!body.rebuildPdf && (!slotId || !declarationsAgreed))) {
+  // The form can be completed without booking a time; the slot is optional.
+  if (!token || (!body.rebuildPdf && !declarationsAgreed)) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
   }
 
@@ -92,25 +92,26 @@ exports.handler = async (event) => {
       return { statusCode: 409, headers, body: JSON.stringify({ error: 'Already completed' }) };
     }
 
-    // 2. Verify the slot exists, belongs to this job, and is still free
-    const slotRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&job_id=eq.${application.job_id}&is_booked=eq.false&select=id,slot_time`
-    );
+    // 2 & 3. Book a slot if one was chosen. The form can be completed without a
+    // time — the applicant returns to the same link to pick one later.
+    let slot = null;
+    if (slotId) {
+      const slotRes = await supabaseGet(
+        `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&job_id=eq.${application.job_id}&is_booked=eq.false&select=id,slot_time`
+      );
+      if (!slotRes.length) {
+        return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot no longer available — please choose another time.' }) };
+      }
+      slot = slotRes[0];
 
-    if (!slotRes.length) {
-      return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot no longer available — please choose another time.' }) };
-    }
-
-    const slot = slotRes[0];
-
-    // 3. Atomically book the slot (PATCH with filter ensures race-condition safety)
-    const slotPatch = await supabasePatch(
-      `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&is_booked=eq.false`,
-      { is_booked: true, application_id: application.id }
-    );
-
-    if (!slotPatch.ok) {
-      return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot was just taken — please choose another time.' }) };
+      // Atomic book (PATCH with filter ensures race-condition safety)
+      const slotPatch = await supabasePatch(
+        `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&is_booked=eq.false`,
+        { is_booked: true, application_id: application.id }
+      );
+      if (!slotPatch.ok) {
+        return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot was just taken — please choose another time.' }) };
+      }
     }
 
     // 4. Save extended form data to application
@@ -134,7 +135,7 @@ exports.handler = async (event) => {
     await supabasePatch(
       `${SUPABASE_URL}/rest/v1/applications?id=eq.${application.id}`,
       {
-        interview_slot_id: slotId,
+        ...(slotId ? { interview_slot_id: slotId } : {}),
         declarations_agreed: true,
         declarations_agreed_at: new Date().toISOString(),
         extended_form_completed: true,
@@ -150,15 +151,16 @@ exports.handler = async (event) => {
     const job = jobRes[0] || {};
 
     // 6. Send confirmation email
-    const slotTime = new Date(slot.slot_time).toLocaleString('en-NZ', {
+    const slotTime = slot ? new Date(slot.slot_time).toLocaleString('en-NZ', {
       weekday: 'long', day: 'numeric', month: 'long',
       hour: '2-digit', minute: '2-digit', hour12: true,
       timeZone: 'Pacific/Auckland'
-    });
+    }) : '';
 
     // Route through send-email so this uses the editable Settings template and
     // the same reply-to rules as every other email, rather than its own copy.
     try {
+      if (!slot) throw { skip: true };
       const base = process.env.URL || 'https://jobs.revive.co.nz';
       const res = await fetch(`${base}/.netlify/functions/send-email`, {
         method: 'POST',
@@ -178,7 +180,7 @@ exports.handler = async (event) => {
       });
       if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
     } catch (err) {
-      console.error('Interview confirmation email threw (booking still saved)', err);
+      if (!(err && err.skip)) console.error('Interview confirmation email threw (booking still saved)', err);
     }
 
     // 7. Build a one-page PDF of the completed application and attach it to

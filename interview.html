@@ -142,7 +142,11 @@
 
         <div v-if="slotError" class="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{{ slotError }}</div>
 
-        <div class="flex justify-end mt-6">
+        <div class="flex flex-wrap justify-between items-center gap-3 mt-6">
+          <button @click="skipSlot"
+            class="text-gray-500 hover:text-gray-800 underline text-sm font-semibold">
+            Skip for now &mdash; fill in the form and choose a time later
+          </button>
           <button @click="goToStep2" :disabled="!selectedSlotId"
             class="bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-bold transition-colors shadow-md">
             Continue to Application Form →
@@ -154,27 +158,51 @@
       <div v-if="interviewStep === 2" class="space-y-4">
 
         <!-- Selected slot reminder -->
-        <div class="bg-brand-pale border border-brand-light rounded-xl p-4 flex items-center gap-3">
+        <div v-if="selectedSlotId" class="bg-brand-pale border border-brand-light rounded-xl p-4 flex items-center gap-3">
           <svg class="w-6 h-6 flex-shrink-0" style="color:#40d134;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
           <div>
             <p class="font-bold text-gray-800 text-sm">Interview Time Selected</p>
             <p style="color:#40d134;" class="font-semibold text-sm">{{ formatSlotFull(selectedSlot) }}</p>
-            <p v-if="selectedSlot" class="text-xs text-gray-500 mt-0.5">{{ slotWhereFull(selectedSlot) }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ slotWhereFull(selectedSlot) }}</p>
           </div>
+        </div>
+        <div v-else class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">No interview time chosen yet</p>
+            <p class="text-xs text-gray-600 mt-0.5">You can complete the form now and pick a time afterwards using this same link.</p>
+          </div>
+          <button @click="interviewStep = 1" class="text-sm font-semibold text-amber-800 underline shrink-0">Choose a time</button>
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 class="text-lg font-extrabold text-gray-900 mb-2">Additional Information</h2>
-          <p class="text-gray-500 text-sm mb-6">Please answer the following questions to help us prepare for your interview.</p>
+          <p class="text-gray-500 text-sm mb-3">Please answer the following questions to help us prepare for your interview.</p>
+
+          <div v-if="prefilling" class="mb-5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600">
+            Reading your CV to fill in what we can&#8230;
+          </div>
+          <div v-else-if="prefilledCount" class="mb-5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <p class="text-sm font-bold text-amber-900">
+              <span class="text-base">*</span> Prefilled information &mdash; please check
+            </p>
+            <p class="text-xs text-amber-800 mt-0.5">
+              We have filled in {{ prefilledCount }} answer{{ prefilledCount !== 1 ? 's' : '' }} from your CV to save you time.
+              Anything marked <strong>*</strong> was filled in by us &mdash; please read it and correct anything that is wrong.
+            </p>
+          </div>
 
           <form @submit.prevent="submitForm" class="space-y-5">
 
             <div v-for="(question, i) in interviewQuestions" :key="i">
-              <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ question }}</label>
-              <textarea v-model="answers[i]" rows="2"
-                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                <span v-if="isPrefilled(i)" class="text-amber-600 font-extrabold" title="Prefilled from your CV — please check">*</span>
+                {{ question }}
+              </label>
+              <textarea v-model="answers[i]" rows="2" @input="touchAnswer(i)"
+                class="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"
+                :class="isPrefilled(i) ? 'border-amber-300 bg-amber-50' : 'border-gray-300'"
                 placeholder="Your answer..."></textarea>
             </div>
 
@@ -296,6 +324,52 @@ createApp({
     }
 
     // ── Step 1 → 2 ───────────────────────────────────────────
+    const prefilling  = ref(false);
+    const prefilled    = ref({});   // question index -> true while still untouched
+
+    const prefilledCount = computed(() => Object.keys(prefilled.value).length);
+    function isPrefilled(i) { return !!prefilled.value[i]; }
+    function touchAnswer(i) { if (prefilled.value[i]) delete prefilled.value[i]; }
+
+    // Fill in what the CV already answers, so the applicant checks rather than retypes.
+    async function runPrefill() {
+      if (prefilling.value) return;
+      prefilling.value = true;
+      try {
+        const res = await fetch('/.netlify/functions/prefill-form', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json().catch(() => ({}));
+        const map = (data && data.prefill) || {};
+        Object.keys(map).forEach(k => {
+          const i = parseInt(k, 10);
+          if (Number.isNaN(i) || i >= interviewQuestions.value.length) return;
+          if ((answers.value[i] || '').trim()) return;   // never overwrite their own words
+          answers.value[i] = map[k];
+          prefilled.value[i] = true;
+        });
+      } catch (e) {
+        console.warn('Prefill unavailable', e);
+      } finally {
+        prefilling.value = false;
+      }
+    }
+
+    // Continue without picking a time — they can come back to the same link.
+    function skipSlot() {
+      selectedSlotId.value = null;
+      selectedSlot.value = null;
+      slotError.value = '';
+      interviewStep.value = 2;
+      if (answers.value.length !== interviewQuestions.value.length) {
+        answers.value = Array(interviewQuestions.value.length).fill('');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      runPrefill();
+    }
+
     function goToStep2() {
       if (!selectedSlotId.value) return;
       slotError.value = '';
@@ -304,6 +378,7 @@ createApp({
       if (answers.value.length !== interviewQuestions.value.length) {
         answers.value = Array(interviewQuestions.value.length).fill('');
       }
+      runPrefill();
     }
 
     // ── Submit (server-side function) ─────────────────────────
@@ -320,7 +395,7 @@ createApp({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             token,
-            slotId: selectedSlotId.value,
+            slotId: selectedSlotId.value || null,
             answers: answers.value,
             declarationsAgreed: true
           })
@@ -393,6 +468,7 @@ createApp({
     return {
       loading, loadError, application, job, slots, settings,
       interviewStep, selectedSlotId, selectedSlot,
+      prefilling, prefilledCount, isPrefilled, touchAnswer, skipSlot,
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
