@@ -45,7 +45,7 @@ exports.handler = async (event) => {
 
   const jobRows = await (await fetch(
     `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}` +
-    `&select=id,title,code,type,description,hourly_rate,min_hours,start_date,expiry_date`,
+    `&select=id,title,code,type,description,hourly_rate,min_hours,start_date`,
     { headers: svc() }
   )).json().catch(() => []);
   if (!Array.isArray(jobRows) || !jobRows.length) {
@@ -65,10 +65,10 @@ exports.handler = async (event) => {
     : `https://jobs.revive.co.nz/job.html?id=${job.id}`;
 
   const facts = [
-    job.type ? 'Type: ' + String(job.type).replace(/_/g, ' ') : '',
+    job.type ? 'Type: ' + titleCase(String(job.type).replace(/_/g, ' ')) : '',
     job.hourly_rate ? 'Rate: $' + job.hourly_rate + '/hour' : '',
     job.min_hours ? 'Hours: from ' + job.min_hours + ' per week' : '',
-    job.start_date ? 'Start: ' + job.start_date : ''
+    job.start_date ? 'Start: ' + formatDate(job.start_date) : ''
   ].filter(Boolean).join('\n');
 
   const descriptionText = htmlToText(job.description || '');
@@ -155,6 +155,22 @@ Return ONLY those two sentences.`;
 
   return { statusCode: 200, headers, body: JSON.stringify({ text, applyUrl }) };
 };
+
+// 01-Oct-2025
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatDate(d) {
+  if (!d) return '';
+  const parts = String(d).slice(0, 10).split('-');
+  if (parts.length !== 3) return String(d);
+  const [y, m, day] = parts;
+  const mi = parseInt(m, 10) - 1;
+  if (!MONTHS[mi]) return String(d);
+  return `${day.padStart(2, '0')}-${MONTHS[mi]}-${y}`;
+}
+
+function titleCase(t) {
+  return String(t || '').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 function htmlToText(h) {
   return String(h || '')
