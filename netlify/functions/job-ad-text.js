@@ -84,25 +84,37 @@ ${htmlToText(job.description || '').substring(0, 4000)}
 ${S.company_history ? `ABOUT THE CAFE:\n${S.company_history.substring(0, 900)}\n` : ''}
 ${S.company_benefits ? `WHAT STAFF GET:\n${S.company_benefits.substring(0, 700)}\n` : ''}
 
-WRITE IT LIKE THIS:
-1. First line: the position title in capitals, then " — Revive Cafe, Auckland CBD".
-2. Second line: "Apply here: ${applyUrl}"
-3. Blank line, then 2-3 sentences of genuine, warm marketing copy that would make a
-   good hospitality person want this job. Lead with what is genuinely attractive
-   about it — for Revive that is usually Monday to Friday only, no nights, no
-   weekends, no public holidays, and real food they can be proud of.
-4. Then short labelled blocks with blank lines between them, using these headings
-   in capitals followed by a colon on its own line:
-   THE ROLE / WHAT YOU'LL BE DOING / WHO WE'RE LOOKING FOR / THE DETAILS / ABOUT REVIVE
-5. Finish with "Apply here: ${applyUrl}" on its own line.
+WRITE IT EXACTLY LIKE THIS:
+Line 1: the position title in capitals, then " - Revive Cafe, Auckland CBD"
+Line 2: Apply here: ${applyUrl}
+Line 3: blank
+Then 2 sentences of warm marketing copy that make a good hospitality person want
+this job. Lead with what is genuinely attractive - for Revive that is Monday to
+Friday only, no nights, no weekends, no public holidays, and real food to be proud of.
+
+Then these blocks, each a heading in capitals on its own line followed immediately
+by its content, with ONE blank line between blocks:
+THE ROLE
+WHAT YOU'LL BE DOING
+WHO WE'RE LOOKING FOR
+THE DETAILS
+ABOUT REVIVE CAFE
+
+Under ABOUT REVIVE CAFE, include the concrete facts that make Revive distinctive —
+open since 2004, Monday to Friday only (closed nights, weekends and public holidays),
+closed over Christmas and New Year, plant-based, fresh cabinet food made daily,
+in the Auckland CBD, plus what staff get. Use ONLY facts present above.
+
+Finish with a blank line then: Apply here: ${applyUrl}
 
 RULES:
-- PLAIN TEXT ONLY. No markdown, no *, no #, no HTML tags. Use "- " for list items.
-- Everything must come from the description and facts above. Invent nothing —
-  no pay rate, hours or start date that is not given.
-- Warm and human, not corporate. Write like a cafe owner, not an HR department.
-- Aim for 250-400 words. Long enough to sell it, short enough to read on a phone.
-- A couple of tasteful emoji in headings is fine; do not overdo it.
+- PLAIN TEXT ONLY. No markdown, no *, no #, no HTML. Use "- " for list items.
+- KEEP IT SHORT: 200-260 words total. This is a social post, not a brochure.
+  Tight sentences. Cut anything that does not help someone decide to apply.
+- Exactly ONE blank line between blocks. Never two. No blank line between a
+  heading and its content.
+- Invent nothing. No pay rate, hours or start date that is not given above.
+- Warm and human. Write like a cafe owner, not an HR department.
 
 Return ONLY the advertisement text, nothing else.`;
 
@@ -131,6 +143,9 @@ Return ONLY the advertisement text, nothing else.`;
       .replace(/^#{1,6}\s*/gm, '')
       .replace(/^\s*[*•]\s+/gm, '- ')
       .replace(/\n{3,}/g, '\n\n')
+      // A heading should sit directly above its content, not floated off it.
+      .replace(/^([A-Z][A-Z' ]{3,}:?)\n\n/gm, '$1\n')
+      .replace(/[ \t]+$/gm, '')
       .trim();
 
     // Guarantee the apply link is present at the top, whatever the model did.
