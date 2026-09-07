@@ -71,53 +71,29 @@ exports.handler = async (event) => {
     job.start_date ? 'Start: ' + job.start_date : ''
   ].filter(Boolean).join('\n');
 
-  const prompt = `Write a job advertisement for Revive Cafe as PLAIN TEXT, ready to paste
-straight into a Facebook post, Backpacker Board, Seek or a community noticeboard.
+  const descriptionText = htmlToText(job.description || '');
+
+  // Only the opening lines are written by AI. Everything after it is reproduced
+  // verbatim from the job description and the company details, so the advert
+  // always matches what is actually on file.
+  const prompt = `Write ONLY a short opening for a job advertisement. Two sentences, plain text.
 
 POSITION: ${job.title}
-${facts ? `KEY FACTS (only use what is here — invent nothing):\n${facts}\n` : ''}
-APPLY LINK: ${applyUrl}
+LOCATION: Revive Cafe, Auckland CBD
+${facts ? `KEY FACTS:\n${facts}\n` : ''}
+THE ROLE (for context only — do not repeat it, it is printed after your opening):
+${descriptionText.substring(0, 2500)}
 
-FULL JOB DESCRIPTION (the source of truth for the role):
-${htmlToText(job.description || '').substring(0, 4000)}
+Write two sentences that would make a good hospitality person want this job.
+Lead with what is genuinely attractive — for Revive that is Monday to Friday only,
+no nights, no weekends, no public holidays, and real food to be proud of.
+Warm and human, like a cafe owner, not an HR department.
+Plain text only. No markdown, no headings, no emoji, no quotes around it.
+Do not mention pay, hours or dates unless they appear in KEY FACTS.
 
-${S.company_history ? `ABOUT THE CAFE:\n${S.company_history.substring(0, 900)}\n` : ''}
-${S.company_benefits ? `WHAT STAFF GET:\n${S.company_benefits.substring(0, 700)}\n` : ''}
+Return ONLY those two sentences.`;
 
-WRITE IT EXACTLY LIKE THIS:
-Line 1: the position title in capitals, then " - Revive Cafe, Auckland CBD"
-Line 2: Apply here: ${applyUrl}
-Line 3: blank
-Then 2 sentences of warm marketing copy that make a good hospitality person want
-this job. Lead with what is genuinely attractive - for Revive that is Monday to
-Friday only, no nights, no weekends, no public holidays, and real food to be proud of.
-
-Then these blocks, each a heading in capitals on its own line followed immediately
-by its content, with ONE blank line between blocks:
-THE ROLE
-WHAT YOU'LL BE DOING
-WHO WE'RE LOOKING FOR
-THE DETAILS
-ABOUT REVIVE CAFE
-
-Under ABOUT REVIVE CAFE, include the concrete facts that make Revive distinctive —
-open since 2004, Monday to Friday only (closed nights, weekends and public holidays),
-closed over Christmas and New Year, plant-based, fresh cabinet food made daily,
-in the Auckland CBD, plus what staff get. Use ONLY facts present above.
-
-Finish with a blank line then: Apply here: ${applyUrl}
-
-RULES:
-- PLAIN TEXT ONLY. No markdown, no *, no #, no HTML. Use "- " for list items.
-- KEEP IT SHORT: 200-260 words total. This is a social post, not a brochure.
-  Tight sentences. Cut anything that does not help someone decide to apply.
-- Exactly ONE blank line between blocks. Never two. No blank line between a
-  heading and its content.
-- Invent nothing. No pay rate, hours or start date that is not given above.
-- Warm and human. Write like a cafe owner, not an HR department.
-
-Return ONLY the advertisement text, nothing else.`;
-
+  let intro = '';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -128,36 +104,56 @@ Return ONLY the advertisement text, nothing else.`;
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 1600,
+        max_tokens: 400,
         messages: [{ role: 'user', content: prompt }]
       })
     });
-    if (!res.ok) throw new Error('Claude ' + res.status + ' ' + await res.text().catch(() => ''));
+    if (!res.ok) throw new Error('Claude ' + res.status);
     const out = await res.json();
-    let text = (out.content && out.content[0] && out.content[0].text || '').trim();
-
-    // Strip any markdown the model slipped in — this has to paste clean.
-    text = text
+    intro = (out.content && out.content[0] && out.content[0].text || '').trim()
       .replace(/^```[a-z]*\n?/i, '').replace(/```$/, '')
       .replace(/\*\*(.+?)\*\*/g, '$1')
       .replace(/^#{1,6}\s*/gm, '')
-      .replace(/^\s*[*•]\s+/gm, '- ')
-      .replace(/\n{3,}/g, '\n\n')
-      // A heading should sit directly above its content, not floated off it.
-      .replace(/^([A-Z][A-Z' ]{3,}:?)\n\n/gm, '$1\n')
-      .replace(/[ \t]+$/gm, '')
+      .replace(/^["']|["']$/g, '')
       .trim();
-
-    // Guarantee the apply link is present at the top, whatever the model did.
-    if (!text.includes(applyUrl)) {
-      text = `${(job.title || '').toUpperCase()} — Revive Cafe, Auckland CBD\nApply here: ${applyUrl}\n\n${text}\n\nApply here: ${applyUrl}`;
-    }
-
-    return { statusCode: 200, headers, body: JSON.stringify({ text, applyUrl }) };
   } catch (err) {
-    console.error('Ad text generation failed', err);
-    return { statusCode: 502, headers, body: JSON.stringify({ error: 'Could not generate the ad text' }) };
+    console.error('Ad intro generation failed, continuing without it', err);
+    intro = '';
   }
+
+  // ---- assemble, verbatim from here down ----
+  const parts = [];
+  parts.push(`${String(job.title || '').toUpperCase()} - Revive Cafe, Auckland CBD`);
+  parts.push(`Apply here: ${applyUrl}`);
+  if (intro) parts.push('', intro);
+
+  if (facts) parts.push('', 'THE DETAILS', facts);
+
+  if (descriptionText) parts.push('', 'ABOUT THE POSITION', descriptionText);
+
+  if (S.company_history && S.company_history.trim()) {
+    parts.push('', 'ABOUT REVIVE CAFE', S.company_history.trim());
+  }
+  if (S.company_benefits && S.company_benefits.trim()) {
+    parts.push('', 'WHAT YOU GET', S.company_benefits.trim());
+  }
+
+  parts.push('', `Apply here: ${applyUrl}`);
+
+  const text = parts.join('\n')
+    .replace(/\r/g, '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // Store it so every future copy is identical until it is regenerated.
+  await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`, {
+    method: 'PATCH',
+    headers: { ...svc(), 'Content-Profile': 'jobs' },
+    body: JSON.stringify({ ad_text: text, ad_text_generated_at: new Date().toISOString() })
+  }).catch(err => console.error('Could not save ad text', err));
+
+  return { statusCode: 200, headers, body: JSON.stringify({ text, applyUrl }) };
 };
 
 function htmlToText(h) {
