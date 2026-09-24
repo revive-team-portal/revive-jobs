@@ -5,6 +5,11 @@
 [functions]
   node_bundler = "esbuild"
 
+# Sends anything held back when the Resend daily cap was reached.
+# Hourly, so a queue built up overnight clears early the next day.
+[functions."drain-email-queue"]
+  schedule = "7 * * * *"
+
 [[headers]]
   for = "/*"
   [headers.values]

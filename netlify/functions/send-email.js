@@ -238,8 +238,13 @@ exports.handler = async (event) => {
     }
 
     emailPayload.reply_to = replyTo;
+    emailPayload.__type = type;
     const result = await sendEmail(emailPayload);
-    return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: result.id }) };
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: true, id: result.id, queued: !!result.queued })
+    };
 
   } catch (err) {
     console.error('Email send error:', err);
@@ -624,22 +629,94 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
 // SEND VIA RESEND API
 // ============================================================
 
+// Resend allows 100 sends a day. Rather than lose an email when that is
+// reached, hold it and send it the next day.
+const DAILY_CAP = 100;
+
+async function sentToday() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return 0;
+  try {
+    const since = new Date(); since.setUTCHours(0, 0, 0, 0);
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/email_sent_log?sent_at=gte.${since.toISOString()}&select=id`,
+      { headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+                   'Accept-Profile': 'jobs', Prefer: 'count=exact', Range: '0-0' } }
+    );
+    const range = r.headers.get('content-range') || '';
+    const total = parseInt(range.split('/')[1], 10);
+    return Number.isFinite(total) ? total : 0;
+  } catch (err) {
+    console.error('Could not count today\'s sends', err);
+    return 0;
+  }
+}
+
+async function logSend(payload) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return;
+  await fetch(`${SUPABASE_URL}/rest/v1/email_sent_log`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+               'Content-Type': 'application/json', 'Content-Profile': 'jobs' },
+    body: JSON.stringify({ to_email: payload.to, email_type: payload.__type || null })
+  }).catch(err => console.error('Could not log send', err));
+}
+
+async function queueEmail(payload, reason) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Cannot queue: not configured');
+  // Tomorrow, just after midnight NZ (NZ is UTC+12/13, so 12:10 UTC).
+  const when = new Date();
+  when.setUTCDate(when.getUTCDate() + 1);
+  when.setUTCHours(12, 10, 0, 0);
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/email_queue`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+               'Content-Type': 'application/json', 'Content-Profile': 'jobs', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      payload, to_email: payload.to, email_type: payload.__type || null,
+      send_after: when.toISOString(), last_error: reason || null
+    })
+  });
+  if (!r.ok) throw new Error('Could not queue the email: ' + await r.text().catch(() => ''));
+  return (await r.json())[0];
+}
+
+function isCapError(status, message) {
+  const m = String(message || '').toLowerCase();
+  return status === 429 || m.includes('daily') || m.includes('quota') ||
+         m.includes('rate limit') || m.includes('limit exceeded');
+}
+
 async function sendEmail(payload) {
+  const body = { ...payload };
+  delete body.__type;
+
+  // Stop before the cap rather than firing a request we know will fail.
+  const used = await sentToday();
+  if (used >= DAILY_CAP) {
+    const q = await queueEmail(payload, `Daily cap of ${DAILY_CAP} reached`);
+    return { id: q && q.id, queued: true, reason: 'daily_cap' };
+  }
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(body)
   });
 
-  const result = await response.json();
+  const result = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (isCapError(response.status, result.message)) {
+      const q = await queueEmail(payload, result.message || `Resend ${response.status}`);
+      return { id: q && q.id, queued: true, reason: 'daily_cap' };
+    }
     throw new Error(result.message || `Resend API error: ${response.status}`);
   }
 
+  await logSend(payload);
   return result;
 }
 
