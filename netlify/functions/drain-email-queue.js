@@ -10,8 +10,10 @@ const RESEND_API_KEY = process.env.RESEND_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 
+// The queue is almost entirely bulk, so it drains to the bulk ceiling and
+// leaves the rest of the daily allowance for individual emails.
 const DAILY_CAP = 100;
-const SAFETY_MARGIN = 5;   // leave room for live sends during the day
+const BULK_CAP = 80;
 
 function svc(extra) {
   return Object.assign({
@@ -41,9 +43,9 @@ exports.handler = async () => {
     console.error('Could not count sends', err);
   }
 
-  const room = DAILY_CAP - SAFETY_MARGIN - used;
+  const room = BULK_CAP - used;
   if (room <= 0) {
-    return { statusCode: 200, body: JSON.stringify({ sent: 0, reason: 'no room today', used }) };
+    return { statusCode: 200, body: JSON.stringify({ sent: 0, reason: 'bulk cap reached for today', used, bulkCap: BULK_CAP }) };
   }
 
   const now = new Date().toISOString();

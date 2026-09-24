@@ -239,6 +239,7 @@ exports.handler = async (event) => {
 
     emailPayload.reply_to = replyTo;
     emailPayload.__type = type;
+    if (data.bulk) emailPayload.__bulk = true;
     const result = await sendEmail(emailPayload);
     return {
       statusCode: 200,
@@ -614,6 +615,8 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
         emailPayload = buildRejectionEmail(data);
       }
       emailPayload.reply_to = replyTo || DEFAULT_REPLY_TO;
+      emailPayload.__type = 'rejection';
+      emailPayload.__bulk = true;
       const result = await sendEmail(emailPayload);
       results.push({ id: applicant.id, success: true, emailId: result.id });
     } catch (err) {
@@ -631,7 +634,17 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
 
 // Resend allows 100 sends a day. Rather than lose an email when that is
 // reached, hold it and send it the next day.
+//
+// Bulk runs stop at 80 so there are always 20 left for the one-off emails that
+// have to go now — an interview invite, a confirmation to someone who just
+// applied. A bulk rejection to a big list must never use up that headroom.
 const DAILY_CAP = 100;
+const BULK_CAP = 80;
+
+// Anything sent to a list rather than to one person in front of you.
+function isBulk(payload, type) {
+  return !!(payload && payload.__bulk) || type === 'bulk_rejection';
+}
 
 async function sentToday() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return 0;
@@ -689,12 +702,18 @@ function isCapError(status, message) {
 async function sendEmail(payload) {
   const body = { ...payload };
   delete body.__type;
+  delete body.__bulk;
+
+  const bulk = isBulk(payload, payload.__type);
+  const cap = bulk ? BULK_CAP : DAILY_CAP;
 
   // Stop before the cap rather than firing a request we know will fail.
   const used = await sentToday();
-  if (used >= DAILY_CAP) {
-    const q = await queueEmail(payload, `Daily cap of ${DAILY_CAP} reached`);
-    return { id: q && q.id, queued: true, reason: 'daily_cap' };
+  if (used >= cap) {
+    const q = await queueEmail(payload, bulk
+      ? `Bulk cap of ${BULK_CAP} reached (${DAILY_CAP - BULK_CAP} kept free for individual emails)`
+      : `Daily cap of ${DAILY_CAP} reached`);
+    return { id: q && q.id, queued: true, reason: bulk ? 'bulk_cap' : 'daily_cap' };
   }
 
   const response = await fetch('https://api.resend.com/emails', {
