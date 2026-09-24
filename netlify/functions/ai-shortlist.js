@@ -55,6 +55,25 @@ exports.handler = async (event) => {
     return { statusCode: 404, headers, body: JSON.stringify({ error: 'Job not found' }) };
   }
   const job = jobRows[0];
+  const isCasual = String(job.type || '').toLowerCase() === 'casual';
+
+  // 1b. Clear any previous AI shortlist back to 'new' so this run reassesses
+  // everyone from scratch. Only rows still marked ai_shortlist are reset — if a
+  // human has since moved someone on, their decision stands.
+  let cleared = 0;
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/applications?job_id=eq.${encodeURIComponent(jobId)}&status=eq.ai_shortlist`,
+      {
+        method: 'PATCH',
+        headers: svc({ 'Content-Profile': 'jobs', Prefer: 'return=representation' }),
+        body: JSON.stringify({ status: 'new', ai_shortlist_reason: null, ai_shortlist_rank: null })
+      }
+    );
+    if (r.ok) cleared = (await r.json().catch(() => [])).length;
+  } catch (err) {
+    console.error('Could not clear the previous shortlist', err);
+  }
 
   // 2. ONLY the uncategorised ones. Anything a human has already filed stays put.
   const apps = await (await fetch(
@@ -66,7 +85,7 @@ exports.handler = async (event) => {
   )).json().catch(() => []);
 
   if (!Array.isArray(apps) || !apps.length) {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, considered: 0, shortlisted: 0, picks: [] }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, considered: 0, shortlisted: 0, cleared, picks: [] }) };
   }
 
   // 3. A compact profile per applicant — enough to judge, small enough to send.
@@ -98,10 +117,24 @@ exports.handler = async (event) => {
 ROLE: ${job.title}${job.type ? ' (' + String(job.type).replace(/_/g, ' ') + ')' : ''}
 ${job.description ? `ROLE DESCRIPTION:\n${stripHtml(job.description).substring(0, 1500)}\n` : ''}
 WHAT MATTERS MOST:
-- How long they can commit. Anyone who can only stay under 6 months should rank well down, however good they look otherwise. Over 6 months, or open-ended, is strongly preferred.
+${isCasual ? `- Relevant hands-on experience for this role.
+- Availability that fits the shifts on offer.
+- Reliability signals: steady work history, turns up when rostered.
+- Right to work with enough hours for the role.
+- How long they can stay matters, but this is a casual role, so do not rank
+  someone down heavily for a shorter stint.` : `- HOW LONG THEY CAN COMMIT. This is the single most important factor for this
+  role and it outranks everything else. This is a ${String(job.type || '').replace(/_/g, ' ')} position
+  and training someone who leaves quickly is a real cost.
+  * Under 6 months, or a visa expiring within 6 months: rank at the very bottom,
+    however good the CV is. Do not shortlist them unless there are not enough
+    other candidates to fill the list.
+  * 6-12 months: acceptable, but rank below anyone who can stay longer.
+  * Over 12 months, permanent, or open-ended: strongly preferred, rank first.
+  * If they have not said, judge it from their visa type and expiry. Treat
+    genuinely unknown as a risk, not a positive.
 - Relevant hands-on experience for this role.
 - Reliability signals: steady work history, no string of very short stints.
-- Right to work with enough hours for the role.
+- Right to work with enough hours for the role.`}
 ${criteria ? `- The employer also says: ${criteria}` : ''}
 
 Do not reward a polished CV over someone who can actually do the job and stay.
@@ -114,7 +147,8 @@ Pick the best ${want}, ranked. Return ONLY valid JSON, no markdown:
 { "picks": [ { "n": <the #number>, "reason": "<one short sentence, concrete, why they made it>" } ] }
 
 The reason must cite something specific from their profile — the length they can
-commit, a relevant role, years of experience. Never a generic phrase.`;
+commit, a relevant role, years of experience. Never a generic phrase.
+${isCasual ? '' : 'Start every reason with how long they can commit, since that is what matters most for this role.'}`;
 
   let picks;
   try {
@@ -179,6 +213,7 @@ commit, a relevant role, years of experience. Never a generic phrase.`;
       ok: true,
       considered: apps.length,
       shortlisted: chosen.length,
+      cleared,
       picks: chosen.map((c, i) => ({ rank: i + 1, name: c.app.full_name, reason: c.reason }))
     })
   };
