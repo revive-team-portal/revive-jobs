@@ -422,6 +422,7 @@ createApp({
         job.value = data || null;
         if (data) {
           document.title = data.title + ' — Revive Cafe';
+          recordView(data.id);
           // Pre-fill answers array to match question count
           form.value.answers = (data.questions || []).map(() => '');
         }
@@ -512,6 +513,25 @@ createApp({
       const p = String(d).slice(0, 10).split('-');
       if (p.length !== 3 || !M[parseInt(p[1], 10) - 1]) return String(d);
       return `${p[2].padStart(2, '0')}-${M[parseInt(p[1], 10) - 1]}-${p[0]}`;
+    }
+
+    // Count this visit. Once per job per browser session, so a refresh or a
+    // scroll back up does not inflate the number.
+    function recordView(jobId) {
+      if (!jobId) return;
+      try {
+        const key = 'rv_seen_' + jobId;
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, '1');
+      } catch (e) { /* private mode — count it anyway */ }
+
+      const params = new URLSearchParams(window.location.search);
+      const src = params.get('utm_source') || params.get('src') || '';
+      fetch('/.netlify/functions/record-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, referral_source: src })
+      }).catch(() => {});   // never let this affect the page
     }
 
     onMounted(() => { loadJob(); loadCompanyContent(); });
