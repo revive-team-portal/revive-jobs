@@ -155,7 +155,7 @@
     <div class="job-header">
       <div class="job-tag">{{ formatType(job.type) }}</div>
       <h1 class="job-title">{{ job.title }}</h1>
-      <div class="job-location">📍 Auckland CBD<span v-if="job.start_date"> &nbsp;·&nbsp; Starts {{ formatDate(job.start_date) }}</span></div>
+      <div class="job-location">📍 Auckland CBD<span v-if="job.start_asap"> &nbsp;·&nbsp; Starts ASAP</span><span v-else-if="job.start_date"> &nbsp;·&nbsp; Starts {{ formatDate(job.start_date) }}</span></div>
 
       <!-- Key facts boxes -->
       <div class="key-facts">
