@@ -354,7 +354,7 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const { createApp, ref, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 const { createClient } = supabase;
 const sb = createClient('https://xcwrawjdfajlmbkdwlbm.supabase.co', 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl', { db: { schema: 'jobs' } });
 
@@ -368,7 +368,17 @@ createApp({
     const dragging = ref(false);
     const fileError = ref('');
     const companyHistory = ref('');
-    const benefits = ref([]);
+    // Two lists: the optional ones an individual ad can switch off, and the ones
+    // every ad carries. The job and the settings load in parallel, so the shown
+    // list is computed rather than built inside either loader.
+    const benefitLists = ref({ optional: [], universal: [] });
+    const benefits = computed(() => {
+      const raw = job.value && job.value.benefits_off;
+      const off = new Set((Array.isArray(raw) ? raw : []).map(b => String(b).trim().toLowerCase()));
+      return benefitLists.value.optional
+        .filter(b => !off.has(b.toLowerCase()))
+        .concat(benefitLists.value.universal);
+    });
     const photos = ref([]);
     const MAX_FILE_BYTES = 5 * 1024 * 1024;
     const MAX_FILES = 6;
@@ -384,12 +394,17 @@ createApp({
     // Company blurb, benefits and photos come from the same Settings the admin edits.
     async function loadCompanyContent() {
       try {
-        const { data } = await sb.from('settings').select('key,value').in('key', ['company_history', 'company_benefits']);
+        const { data } = await sb.from('settings').select('key,value')
+          .in('key', ['company_history', 'company_benefits', 'company_benefits_optional']);
         const map = {};
         (data || []).forEach(r => { map[r.key] = r.value; });
         companyHistory.value = (map.company_history || '').trim();
-        benefits.value = (map.company_benefits || '')
+        const lines = v => String(v || '')
           .split('\n').map(b => b.replace(/^[-\u2022\s]+/, '').trim()).filter(Boolean);
+        benefitLists.value = {
+          optional: lines(map.company_benefits_optional),
+          universal: lines(map.company_benefits)
+        };
       } catch {}
       // One shared photo set, managed in the admin under Settings > Gallery Photos.
       try {

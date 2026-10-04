@@ -12,6 +12,8 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 
+const { SETTINGS_KEYS, benefitsTextFor } = require('./_benefits');
+
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -48,7 +50,7 @@ exports.handler = async (event) => {
 
   // Confirm the job exists and is open before accepting an application.
   const jobRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status,title,type,description,employer_email,employer_name`,
+    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(job_id)}&select=id,status,title,type,description,employer_email,employer_name,benefits_off`,
     { headers: svcHeaders() }
   );
   const jobs = await jobRes.json().catch(() => []);
@@ -118,7 +120,7 @@ exports.handler = async (event) => {
   // Confirmation email. Wrapped so a mail failure can never lose the application.
   if (saved.id) {
     try {
-      const settings = await loadSettings(['company_history', 'company_benefits']);
+      const settings = await loadSettings(['company_history', ...SETTINGS_KEYS]);
       const mail = await fetch(`${base()}/.netlify/functions/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +140,7 @@ exports.handler = async (event) => {
           visaCountry: row.visa_country,
           visaConditions: row.visa_conditions,
           companyHistory: settings.company_history || '',
-          companyBenefits: settings.company_benefits || '',
+          companyBenefits: benefitsTextFor(settings, job),
           employerEmail: job.employer_email,
           employerName: job.employer_name
         })

@@ -11,6 +11,8 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 
+const { SETTINGS_KEYS, benefitsTextFor } = require('./_benefits');
+
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -45,7 +47,7 @@ exports.handler = async (event) => {
 
   const jobRows = await (await fetch(
     `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}` +
-    `&select=id,title,code,type,description,hourly_rate,min_hours,start_date,start_asap`,
+    `&select=id,title,code,type,description,hourly_rate,min_hours,start_date,start_asap,benefits_off`,
     { headers: svc() }
   )).json().catch(() => []);
   if (!Array.isArray(jobRows) || !jobRows.length) {
@@ -54,7 +56,7 @@ exports.handler = async (event) => {
   const job = jobRows[0];
 
   const setRows = await (await fetch(
-    `${SUPABASE_URL}/rest/v1/settings?key=in.(company_history,company_benefits)&select=key,value`,
+    `${SUPABASE_URL}/rest/v1/settings?key=in.(company_history,${SETTINGS_KEYS.join(',')})&select=key,value`,
     { headers: svc() }
   )).json().catch(() => []);
   const S = {};
@@ -134,8 +136,11 @@ Return ONLY those two sentences.`;
   if (S.company_history && S.company_history.trim()) {
     parts.push('', 'ABOUT REVIVE CAFE', S.company_history.trim());
   }
-  if (S.company_benefits && S.company_benefits.trim()) {
-    parts.push('', 'WHAT YOU GET', S.company_benefits.trim());
+  // Optional benefits this ad has switched off are dropped here, so the advert
+  // never promises something the role cannot offer.
+  const benefitsText = benefitsTextFor(S, job);
+  if (benefitsText) {
+    parts.push('', 'WHAT YOU GET', benefitsText);
   }
 
   parts.push('', `Apply here: ${applyUrl}`);
