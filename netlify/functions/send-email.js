@@ -92,7 +92,7 @@ function renderTemplate(bodyText, values, headline, contactEmail) {
 function templateValues(data) {
   const visaLines = data.onVisa
     ? ['VISA TYPE: ' + (data.visaType || 'Not specified'),
-       'COUNTRY: ' + (data.visaCountry || 'Not specified'),
+       'NATIONALITY: ' + (data.visaCountry || 'Not specified'),
        'CONDITIONS: ' + (data.visaConditions || 'None noted')].join('\n')
     : '';
   return {
@@ -273,7 +273,7 @@ function buildConfirmationEmail(data) {
     visaInfo = `
 <tr><td colspan="2" style="padding:8px 0;border-top:1px solid #eee;font-weight:600;color:#40d134;">VISA INFORMATION</td></tr>
 <tr><td style="padding:4px 0;color:#666;width:160px;">Visa Type</td><td style="padding:4px 0;">${visaType || 'Not specified'}</td></tr>
-<tr><td style="padding:4px 0;color:#666;">Country</td><td style="padding:4px 0;">${visaCountry || 'Not specified'}</td></tr>
+<tr><td style="padding:4px 0;color:#666;">Nationality</td><td style="padding:4px 0;">${visaCountry || 'Not specified'}</td></tr>
 <tr><td style="padding:4px 0;color:#666;">Expiry Date</td><td style="padding:4px 0;">${visaExpiry || 'Not specified'}</td></tr>
 <tr><td style="padding:4px 0;color:#666;">Conditions</td><td style="padding:4px 0;">${visaConditions || 'None noted'}</td></tr>`;
   }

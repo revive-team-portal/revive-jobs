@@ -326,7 +326,7 @@ function labelFor(map, value, fallback) {
 async function attachApplicationPdf({ application, job, slotTime, questionAnswers, declarationList }) {
   const workRights = labelFor({
     citizen: 'NZ / Australian Citizen', resident: 'NZ Permanent Resident',
-    work_visa: 'Work Visa', student_visa: 'Student Visa', other: 'Other'
+    work_visa: 'Work / Student Visa', student_visa: 'Student Visa', other: 'Other'
   }, application.work_rights, 'Not stated');
 
   const referral = labelFor({
@@ -351,7 +351,7 @@ async function attachApplicationPdf({ application, job, slotTime, questionAnswer
     ['Nationality', application.nationality],
     ['Right to work', workRights + (application.work_rights_detail ? ' - ' + application.work_rights_detail : '')],
     ['Visa', application.on_visa
-      ? [application.visa_type, application.visa_country, application.visa_conditions].filter(Boolean).join(', ')
+      ? [application.visa_type, application.visa_country ? 'nationality ' + application.visa_country : '', application.visa_conditions].filter(Boolean).join(', ')
       : ''],
     ['Heard about us via', referral]
   ].filter(([, v]) => v).forEach(([k, v]) => blocks.push({ style: 'qa', question: k, answer: v }));

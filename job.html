@@ -239,8 +239,7 @@
             <option value="">Select…</option>
             <option value="citizen">NZ / Australian Citizen</option>
             <option value="resident">NZ Permanent Resident</option>
-            <option value="work_visa">Work Visa</option>
-            <option value="student_visa">Student Visa</option>
+            <option value="work_visa">Work / Student Visa</option>
             <option value="other">Other</option>
           </select>
           <div class="detail-input" v-if="form.work_rights === 'other'">
@@ -249,16 +248,16 @@
           </div>
         </div>
 
-        <!-- Work visa detail fields -->
+        <!-- Visa detail fields (work and student visas combined, 5 Oct 2026) -->
         <div class="visa-details" v-if="form.work_rights === 'work_visa'">
           <div class="form-row">
             <div class="form-group" style="margin-bottom:0">
-              <label>Country of Visa *</label>
-              <input v-model="form.visa_country" type="text" required placeholder="e.g. New Zealand">
+              <label>Your Nationality *</label>
+              <input v-model="form.visa_country" type="text" required placeholder="e.g. Germany">
             </div>
             <div class="form-group" style="margin-bottom:0">
               <label>Visa Type *</label>
-              <input v-model="form.visa_type" type="text" required placeholder="e.g. Working Holiday">
+              <input v-model="form.visa_type" type="text" required placeholder="e.g. Working Holiday, Student">
             </div>
           </div>
           <div class="form-row" style="margin-top:10px">
@@ -273,10 +272,6 @@
           </div>
         </div>
 
-        <!-- Student visa note -->
-        <div v-if="form.work_rights === 'student_visa'" style="font-size:12px;color:#888;margin:-8px 0 14px;padding:8px 12px;background:#f8f8f8;border-radius:4px;">
-          Student visas typically allow up to 20 hours of work per week during study. Please mention any relevant conditions in your cover letter.
-        </div>
 
         <div class="form-group">
           <label>How did you hear about us?</label>
