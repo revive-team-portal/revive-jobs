@@ -168,6 +168,8 @@ async function resolve(app) {
       home_lat: null, home_lng: null, home_km: null, home_km_kind: null };
   }
   const nz = !x.country || /new zealand|aotearoa|^nz$/i.test(x.country);
+  // "Auckland" given as the suburb is really just the city - no suburb known.
+  if (x.suburb && /^(auckland|akl|auckland city)$/i.test(x.suburb)) { x.city = x.city || 'Auckland'; x.suburb = null; }
 
   // Most precise first: full address, then suburb + city, then city alone.
   const tries = [];
