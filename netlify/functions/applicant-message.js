@@ -44,7 +44,10 @@ exports.handler = async (event) => {
   try { body = JSON.parse(event.body || '{}'); } catch { return reply(400, { error: 'Invalid request' }); }
 
   const token = String(body.token || '').trim();
-  if (token.length < 30) return reply(400, { error: 'Invalid link' });
+  // interview_token is a uuid; anything else would make Postgres error (seen as a 500).
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+    return reply(404, { error: 'Invalid or expired link' });
+  }
 
   const text = String(body.message || '').replace(/\r\n/g, '\n').trim();
   if (!text) return reply(400, { error: 'Please type a message first.' });
