@@ -53,10 +53,11 @@
   </div>
 
   <!-- Already completed -->
-  <div v-else-if="application && application.extended_form_completed" class="max-w-lg mx-auto px-4 py-16 text-center">
+  <div v-else-if="application && application.extended_form_completed && (application.interview_slot_id || !slots.length)" class="max-w-lg mx-auto px-4 py-16 text-center">
     <div class="text-6xl mb-4">✅</div>
     <h2 class="text-2xl font-bold text-gray-800 mb-2">You're all set!</h2>
-    <p class="text-gray-600 mb-2">You've already completed your interview booking.</p>
+    <p v-if="application.interview_slot_id" class="text-gray-600 mb-2">You've already completed your interview booking.</p>
+    <p v-else class="text-gray-600 mb-2">We have your application form. There are no interview times open right now &mdash; we'll be in touch.</p>
     <p class="text-gray-500 text-sm">If you need to make changes, contact <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a></p>
   </div>
 
@@ -74,7 +75,8 @@
         <div>
           <h1 class="text-xl font-extrabold text-gray-900">Hi {{ application.full_name }}! 👋</h1>
           <p class="text-gray-600 mt-1 text-sm">You've been invited to interview for <strong>{{ job && job.title }}</strong> at Revive Cafe.</p>
-          <p class="text-gray-500 text-xs mt-1">Please complete both steps below to confirm your interview.</p>
+          <p v-if="bookOnly" class="text-gray-500 text-xs mt-1">We have your application form &mdash; just choose a time below to confirm your interview.</p>
+          <p v-else class="text-gray-500 text-xs mt-1">Please complete both steps below to confirm your interview.</p>
         </div>
       </div>
     </div>
@@ -96,13 +98,13 @@
     <div v-else>
 
       <!-- Progress indicator -->
-      <div class="flex items-center justify-center gap-2 mb-6">
+      <div v-if="!bookOnly" class="flex items-center justify-center gap-2 mb-6">
         <div v-for="s in 2" :key="s" class="flex items-center gap-2">
           <div class="step-dot" :style="{ background: interviewStep >= s ? '#40d134' : '#e5e7eb', color: interviewStep >= s ? 'white' : '#9ca3af' }">{{ s }}</div>
           <div v-if="s < 2" class="w-12 h-0.5" :style="{ background: interviewStep > s ? '#40d134' : '#e5e7eb' }"></div>
         </div>
       </div>
-      <p class="text-center text-sm text-gray-500 mb-6">
+      <p v-if="!bookOnly" class="text-center text-sm text-gray-500 mb-6">
         <span v-if="interviewStep === 1">Step 1: Select Interview Time</span>
         <span v-else>Step 2: Additional Information</span>
       </p>
@@ -142,7 +144,13 @@
 
         <div v-if="slotError" class="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{{ slotError }}</div>
 
-        <div class="flex flex-wrap justify-between items-center gap-3 mt-6">
+        <div v-if="bookOnly" class="flex justify-end mt-6">
+          <button @click="bookTime" :disabled="!selectedSlotId || submitting"
+            class="bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-bold transition-colors shadow-md">
+            {{ submitting ? 'Booking\u2026' : 'Book this time' }}
+          </button>
+        </div>
+        <div v-else class="flex flex-wrap justify-between items-center gap-3 mt-6">
           <button @click="skipSlot"
             class="text-gray-500 hover:text-gray-800 underline text-sm font-semibold">
             Skip for now &mdash; fill in the form and choose a time later
@@ -271,6 +279,8 @@ createApp({
     const answers          = ref([]);
     const declarationsAgreed = ref(false);
     const submitted        = ref(false);
+    // Form already filled in, no time yet: they came back to pick one.
+    const bookOnly = computed(() => !!(application.value && application.value.extended_form_completed && !application.value.interview_slot_id));
     const submitting       = ref(false);
     const formError        = ref('');
     const slotError        = ref('');
@@ -424,6 +434,33 @@ createApp({
       }
     }
 
+    // Book a time after the form was already submitted (same link, later).
+    async function bookTime() {
+      if (!selectedSlotId.value || submitting.value) return;
+      submitting.value = true;
+      slotError.value = '';
+      try {
+        const res = await fetch('/.netlify/functions/complete-interview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, slotId: selectedSlotId.value, bookOnly: true })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          slotError.value = data.error || 'Something went wrong. Please try again.';
+          if (res.status === 409) { selectedSlotId.value = null; selectedSlot.value = null; await loadData(); }
+          return;
+        }
+        confirmedSlotTime.value = data.slotTime;
+        submitted.value = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        slotError.value = 'Network error. Please try again or contact jobs@revivealicious.com';
+      } finally {
+        submitting.value = false;
+      }
+    }
+
     // ── Formatters ────────────────────────────────────────────
     function formatDate(dateStr) {
       return new Date(dateStr).toLocaleDateString('en-NZ', {
@@ -472,6 +509,7 @@ createApp({
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
+      bookOnly, bookTime,
       goToStep2, submitForm, formatDate, formatTime, formatSlotFull, slotWhere, slotWhereFull, isVideoInterview
     };
   }

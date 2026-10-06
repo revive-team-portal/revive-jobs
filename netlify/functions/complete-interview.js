@@ -37,7 +37,7 @@ exports.handler = async (event) => {
   const { token, slotId, answers, declarationsAgreed } = body;
 
   // The form can be completed without booking a time; the slot is optional.
-  if (!token || (!body.rebuildPdf && !declarationsAgreed)) {
+  if (!token || (!body.rebuildPdf && !body.bookOnly && !declarationsAgreed)) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
   }
 
@@ -56,36 +56,28 @@ exports.handler = async (event) => {
     // Rebuild the PDF for a form that was completed before PDFs existed, or
     // after the questions were corrected. Does not touch the booking.
     if (body.rebuildPdf) {
-      const s2 = await supabaseGet(
-        `${SUPABASE_URL}/rest/v1/settings?key=in.(interview_form_questions,declarations_text)&select=key,value`
-      );
-      const m2 = {}; (s2 || []).forEach(r => { m2[r.key] = r.value; });
-      const qs2 = (m2.interview_form_questions || '').split('\n').map(q => q.trim()).filter(Boolean);
-      const ds2 = (m2.declarations_text || '').split('\n').map(d => d.trim()).filter(Boolean);
-      let stored = {};
-      try { stored = JSON.parse(application.interview_notes || '{}'); } catch (e) {}
-      const qa2 = {};
-      Object.keys(stored).forEach(k => {
-        const idx = parseInt(String(k).replace(/\D/g, ''), 10) - 1;
-        qa2[k] = { question: (stored[k] && stored[k].question) || qs2[idx] || `Question ${idx + 1}`,
-                   answer: (stored[k] && stored[k].answer) || '' };
-      });
-      const j2 = await supabaseGet(
-        `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,interview_location_type,interview_location_detail,interview_meeting_link`
-      );
-      let when = '';
-      if (application.interview_slot_id) {
-        const sl = await supabaseGet(`${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${application.interview_slot_id}&select=slot_time`);
-        if (sl && sl[0]) when = new Date(sl[0].slot_time).toLocaleString('en-NZ', {
-          weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
-          hour12: true, timeZone: 'Pacific/Auckland'
-        });
-      }
-      await attachApplicationPdf({
-        application, job: (j2 && j2[0]) || {}, slotTime: when,
-        questionAnswers: qa2, declarationList: ds2
-      });
+      await rebuildPdfFor(application);
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, rebuilt: true }) };
+    }
+
+    // Form already done but no time picked yet: the applicant has come back to the
+    // same link to choose one (the form promises they can). Book only.
+    if (application.extended_form_completed && body.bookOnly) {
+      if (application.interview_slot_id) {
+        return { statusCode: 409, headers, body: JSON.stringify({ error: 'You already have an interview booked.' }) };
+      }
+      if (!slotId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Please choose a time.' }) };
+      const booked = await bookSlot(application, slotId);
+      if (booked.error) return { statusCode: booked.status, headers, body: JSON.stringify({ error: booked.error }) };
+      application.interview_slot_id = slotId;
+      const jr = await supabaseGet(
+        `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
+      );
+      const bjob = (jr && jr[0]) || {};
+      const when = formatSlot(booked.slot.slot_time);
+      await sendInterviewConfirmation(application, bjob, when);
+      try { await rebuildPdfFor(application); } catch (e) { console.error('PDF rebuild after booking failed (booking still saved)', e); }
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, slotTime: when }) };
     }
 
     if (application.extended_form_completed) {
@@ -96,22 +88,9 @@ exports.handler = async (event) => {
     // time — the applicant returns to the same link to pick one later.
     let slot = null;
     if (slotId) {
-      const slotRes = await supabaseGet(
-        `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&job_id=eq.${application.job_id}&is_booked=eq.false&select=id,slot_time`
-      );
-      if (!slotRes.length) {
-        return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot no longer available — please choose another time.' }) };
-      }
-      slot = slotRes[0];
-
-      // Atomic book (PATCH with filter ensures race-condition safety)
-      const slotPatch = await supabasePatch(
-        `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${slotId}&is_booked=eq.false`,
-        { is_booked: true, application_id: application.id }
-      );
-      if (!slotPatch.ok) {
-        return { statusCode: 409, headers, body: JSON.stringify({ error: 'Slot was just taken — please choose another time.' }) };
-      }
+      const booked = await bookSlot(application, slotId);
+      if (booked.error) return { statusCode: booked.status, headers, body: JSON.stringify({ error: booked.error }) };
+      slot = booked.slot;
     }
 
     // 4. Save extended form data to application
@@ -132,7 +111,7 @@ exports.handler = async (event) => {
       questionAnswers[`q${i + 1}`] = { question: questionList[i] || `Question ${i + 1}`, answer: ans };
     });
 
-    await supabasePatch(
+    const appPatch = await supabasePatch(
       `${SUPABASE_URL}/rest/v1/applications?id=eq.${application.id}`,
       {
         ...(slotId ? { interview_slot_id: slotId } : {}),
@@ -143,6 +122,12 @@ exports.handler = async (event) => {
         status: 'interview'
       }
     );
+    if (!appPatch.ok) {
+      const detail = await appPatch.text().catch(() => '');
+      console.error('Application save failed', appPatch.status, detail);
+      if (slotId) await releaseSlot(slotId, application.id);
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'We could not save your form — please try again. If it keeps happening, email jobs@revivealicious.com.' }) };
+    }
 
     // 5. Fetch job for the email and the PDF
     const jobRes = await supabaseGet(
@@ -159,29 +144,7 @@ exports.handler = async (event) => {
 
     // Route through send-email so this uses the editable Settings template and
     // the same reply-to rules as every other email, rather than its own copy.
-    try {
-      if (!slot) throw { skip: true };
-      const base = process.env.URL || 'https://jobs.revive.co.nz';
-      const res = await fetch(`${base}/.netlify/functions/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'interview_confirmation',
-          jobId: application.job_id,
-          employerEmail: job.employer_email,
-          applicantName: application.full_name,
-          applicantEmail: application.email,
-          jobTitle: job.title,
-          jobType: job.type,
-          interviewTime: slotTime,
-          employerName: job.employer_name,
-          interviewLocation: interviewLocation(job)
-        })
-      });
-      if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
-    } catch (err) {
-      if (!(err && err.skip)) console.error('Interview confirmation email threw (booking still saved)', err);
-    }
+    if (slot) await sendInterviewConfirmation(application, job, slotTime);
 
     // 7. Build a one-page PDF of the completed application and attach it to
     // their documents, so the whole application is one printable record.
@@ -204,6 +167,115 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server error: ' + err.message }) };
   }
 };
+
+// ============================================================
+// BOOKING HELPERS (6 Oct 2026)
+// ============================================================
+
+// Book a slot for this application. The PATCH is filtered on is_booked=false and
+// asks for the changed rows back, so a slot someone else just took returns zero
+// rows instead of a silent 204 that looked like success.
+async function bookSlot(application, slotId) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${encodeURIComponent(slotId)}&job_id=eq.${application.job_id}&is_booked=eq.false&select=id,slot_time`,
+    { method: 'PATCH', headers: {
+        apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json', 'Accept-Profile': 'jobs', 'Content-Profile': 'jobs',
+        Prefer: 'return=representation' },
+      body: JSON.stringify({ is_booked: true, application_id: application.id }) });
+  if (!res.ok) {
+    console.error('Slot booking failed', res.status, await res.text().catch(() => ''));
+    return { status: 500, error: 'We could not book that time — please try again.' };
+  }
+  const rows = await res.json().catch(() => []);
+  if (!rows.length) return { status: 409, error: 'Slot no longer available — please choose another time.' };
+  if (application.extended_form_completed) {
+    // Book-only path: the form is already saved, so link the slot now and
+    // undo the booking if that write fails.
+    const p = await supabasePatch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${application.id}`, { interview_slot_id: slotId });
+    if (!p.ok) {
+      console.error('Linking slot to application failed', p.status, await p.text().catch(() => ''));
+      await releaseSlot(slotId, application.id);
+      return { status: 500, error: 'We could not save your booking — please try again.' };
+    }
+  }
+  return { slot: rows[0] };
+}
+
+async function releaseSlot(slotId, applicationId) {
+  const r = await supabasePatch(
+    `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${encodeURIComponent(slotId)}&application_id=eq.${applicationId}`,
+    { is_booked: false, application_id: null });
+  if (!r.ok) console.error('Could not release slot', slotId, r.status);
+}
+
+function formatSlot(iso) {
+  return new Date(iso).toLocaleString('en-NZ', {
+    weekday: 'long', day: 'numeric', month: 'long',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Pacific/Auckland'
+  });
+}
+
+// Route through send-email so this uses the editable Settings template and
+// the same reply-to rules as every other email, rather than its own copy.
+async function sendInterviewConfirmation(application, job, slotTime) {
+  try {
+    const base = process.env.URL || 'https://jobs.revive.co.nz';
+    const res = await fetch(`${base}/.netlify/functions/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'interview_confirmation',
+        jobId: application.job_id,
+        employerEmail: job.employer_email,
+        applicantName: application.full_name,
+        applicantEmail: application.email,
+        jobTitle: job.title,
+        jobType: job.type,
+        interviewTime: slotTime,
+        employerName: job.employer_name,
+        interviewLocation: interviewLocation(job)
+      })
+    });
+    if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
+  } catch (err) {
+    console.error('Interview confirmation email threw (booking still saved)', err);
+  }
+}
+
+// Rebuild the one-page application PDF from what is stored (answers, slot).
+async function rebuildPdfFor(application) {
+  const s2 = await supabaseGet(
+    `${SUPABASE_URL}/rest/v1/settings?key=in.(interview_form_questions,declarations_text)&select=key,value`
+  );
+  const m2 = {}; (s2 || []).forEach(r => { m2[r.key] = r.value; });
+  const qs2 = (m2.interview_form_questions || '').split('\n').map(q => q.trim()).filter(Boolean);
+  const ds2 = (m2.declarations_text || '').split('\n').map(d => d.trim()).filter(Boolean);
+  let stored = {};
+  try { stored = JSON.parse(application.interview_notes || '{}'); } catch (e) {}
+  const qa2 = {};
+  Object.keys(stored).forEach(k => {
+    const idx = parseInt(String(k).replace(/\D/g, ''), 10) - 1;
+    qa2[k] = { question: (stored[k] && stored[k].question) || qs2[idx] || `Question ${idx + 1}`,
+               answer: (stored[k] && stored[k].answer) || '' };
+  });
+  const j2 = await supabaseGet(
+    `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,interview_location_type,interview_location_detail,interview_meeting_link`
+  );
+  let when = '';
+  if (application.interview_slot_id) {
+    const sl = await supabaseGet(`${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${application.interview_slot_id}&select=slot_time`);
+    if (sl && sl[0]) when = new Date(sl[0].slot_time).toLocaleString('en-NZ', {
+      weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
+      hour12: true, timeZone: 'Pacific/Auckland'
+    });
+  }
+  await attachApplicationPdf({
+    application, job: (j2 && j2[0]) || {}, slotTime: when,
+    questionAnswers: qa2, declarationList: ds2
+  });
+}
 
 // ============================================================
 // SUPABASE HELPERS (service role key)
