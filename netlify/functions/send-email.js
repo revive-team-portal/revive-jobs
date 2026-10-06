@@ -5,6 +5,7 @@
 // ============================================================
 
 const RESEND_API_KEY = process.env.RESEND_KEY;
+const { SETTINGS_KEYS: BENEFIT_KEYS, benefitsTextFor } = require('./_benefits');
 const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
 const DEFAULT_REPLY_TO = 'jobs@revivealicious.com';
 
@@ -103,7 +104,9 @@ function templateValues(data) {
     referral_source: formatReferral(data.referralSource),
     job_title: data.jobTitle || '',
     job_type: formatJobType(data.jobType),
-    job_description_summary: stripTags(data.jobDescription || '').slice(0, 400),
+    // Was the first 400 characters, cut mid-sentence (6 Oct 2026). Now the full
+    // description; the token name stays so the Settings templates keep working.
+    job_description_summary: htmlToText(data.jobDescription || ''),
     job_description: htmlToText(data.jobDescription || ''),
     visa_info: visaLines,
     company_history: data.companyHistory || '',
@@ -121,7 +124,8 @@ function templateValues(data) {
 function htmlToText(h) {
   return String(h || '')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|h[1-6]|li)>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|ul|ol)>/gi, '\n\n')
     .replace(/<li[^>]*>/gi, '\u2022 ')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&')
@@ -153,6 +157,39 @@ async function buildFromTemplate(type, data, replyTo) {
     subject: subject || `Revive Cafe — ${data.jobTitle || 'Your application'}`,
     html: renderTemplate(body, values, headline, values.employer_email)
   };
+}
+
+// Job details, "About Revive Cafe" and the benefits come from the database, not
+// the caller. The admin, complete-interview and submit-application each passed
+// their own copies, so an email could go out with a cut-down description or no
+// company history at all (6 Oct 2026). Applicant-specific fields still come
+// from the caller.
+async function enrichFromJob(data) {
+  const jobId = String(data.jobId || data.job_id || '').trim();
+  if (!jobId || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) return data;
+  const h = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Accept-Profile': 'jobs' };
+  try {
+    const [jr, settings] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}&select=title,type,description,employer_name,benefits_off`, { headers: h })
+        .then(r => r.ok ? r.json() : []),
+      loadSettings(['company_history', ...BENEFIT_KEYS])
+    ]);
+    const job = (jr && jr[0]) || null;
+    const out = { ...data };
+    if (job) {
+      if (job.description) out.jobDescription = job.description;
+      if (!out.jobTitle && job.title) out.jobTitle = job.title;
+      if (!out.jobType && job.type) out.jobType = job.type;
+      if (!out.employerName && job.employer_name) out.employerName = job.employer_name;
+      const benefits = benefitsTextFor(settings, job);
+      if (benefits) out.companyBenefits = benefits;
+    }
+    if (settings.company_history) out.companyHistory = settings.company_history;
+    return out;
+  } catch (err) {
+    console.error('Could not load job details for email (using caller values)', err);
+    return data;
+  }
 }
 
 async function resolveReplyTo(data) {
@@ -213,6 +250,7 @@ exports.handler = async (event) => {
   const { type } = data;
 
   try {
+    if (type !== 'bulk_rejection') data = await enrichFromJob(data);
     const replyTo = await resolveReplyTo(data);
     let emailPayload = await buildFromTemplate(type, data, replyTo);
 
@@ -384,8 +422,8 @@ function buildInterviewInviteEmail(data) {
     `<li style="margin-bottom:6px;">${b.trim()}</li>`
   ).join('');
 
-  // Short summary of job description (first 300 chars)
-  const descSummary = jobDescription ? jobDescription.substring(0, 300) + (jobDescription.length > 300 ? '...' : '') : '';
+  // Full description — this used to be cut at 300 characters.
+  const descSummary = htmlToText(jobDescription || '');
 
   const html = `
 <!DOCTYPE html>
@@ -435,7 +473,7 @@ function buildInterviewInviteEmail(data) {
             <!-- Job Details -->
             <div style="margin-bottom:24px;">
               <p style="font-weight:700;color:#333;font-size:15px;border-bottom:2px solid #40d134;padding-bottom:8px;margin-bottom:12px;">ABOUT THE ROLE: ${jobTitle} (${jobTypeLabel})</p>
-              <p style="color:#555;line-height:1.7;font-size:14px;">${descSummary}</p>
+              <p style="color:#555;line-height:1.7;font-size:14px;white-space:pre-line;">${esc(descSummary)}</p>
             </div>
 
             <!-- Company History -->
