@@ -39,7 +39,7 @@ exports.handler = async (event) => {
   try {
     // Fetch application by interview token using service role key
     const appRes = await supabaseQuery(
-      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,job_id,status,extended_form_completed,interview_slot_id,interview_invite_sent`,
+      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,job_id,status,extended_form_completed,interview_slot_id,interview_invite_sent,applicant_messages`,
       SUPABASE_SERVICE_KEY
     );
 
@@ -86,7 +86,9 @@ exports.handler = async (event) => {
           status: application.status,
           extended_form_completed: application.extended_form_completed,
           interview_slot_id: application.interview_slot_id,
-          interview_invite_sent: application.interview_invite_sent
+          interview_invite_sent: application.interview_invite_sent,
+          // Their own messages, so the page can show what they've already sent.
+          applicant_messages: Array.isArray(application.applicant_messages) ? application.applicant_messages : []
         },
         job,
         slots: slotsRes,

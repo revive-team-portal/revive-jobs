@@ -160,6 +160,28 @@
             Continue to Application Form →
           </button>
         </div>
+
+        <!-- Send us a message (6 Oct 2026) — shows in red on their application in the admin -->
+        <div class="mt-8 pt-6 border-t border-gray-100">
+          <h3 class="text-base font-extrabold text-gray-900 mb-1">Send us a message</h3>
+          <p class="text-gray-500 text-sm mb-3">None of these times suit you, or something we should know? Let us know here.</p>
+          <div v-if="sentMessages.length" class="space-y-2 mb-3">
+            <div v-for="(m, mi) in sentMessages" :key="mi" class="bg-brand-pale border border-brand-light rounded-lg px-3 py-2">
+              <p class="text-sm text-gray-700 whitespace-pre-line">{{ m.text }}</p>
+              <p class="text-xs text-gray-400 mt-1">Sent {{ formatSent(m.at) }}</p>
+            </div>
+          </div>
+          <textarea v-model="messageText" rows="3" maxlength="2000"
+            placeholder="Type your message&#8230;"
+            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:border-brand"></textarea>
+          <div class="flex items-center justify-between gap-3 mt-2 flex-wrap">
+            <p class="text-sm" :class="messageError ? 'text-red-600' : 'text-green-700'">{{ messageError || messageNote }}</p>
+            <button type="button" @click="sendMessage" :disabled="!messageText.trim() || sendingMessage"
+              class="bg-gray-800 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors">
+              {{ sendingMessage ? 'Sending\u2026' : 'Send message' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- STEP 2: Extended form -->
@@ -354,6 +376,40 @@ createApp({
     // CV with nothing usable looked exactly like the feature being broken.
     const prefillStatus = ref('');
 
+    // ── Send us a message ────────────────────────────────────
+    const messageText = ref('');
+    const sendingMessage = ref(false);
+    const messageError = ref('');
+    const messageNote = ref('');
+    const sentMessages = computed(() => (application.value && application.value.applicant_messages) || []);
+    async function sendMessage() {
+      const text = messageText.value.trim();
+      if (!text || sendingMessage.value) return;
+      sendingMessage.value = true;
+      messageError.value = '';
+      messageNote.value = '';
+      try {
+        const res = await fetch('/.netlify/functions/applicant-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, message: text })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) { messageError.value = data.error || 'Your message could not be sent — please try again.'; return; }
+        application.value.applicant_messages = data.messages || [];
+        messageText.value = '';
+        messageNote.value = 'Thanks — we have your message.';
+      } catch {
+        messageError.value = 'Network error — please try again.';
+      } finally {
+        sendingMessage.value = false;
+      }
+    }
+    function formatSent(iso) {
+      return iso ? new Date(iso).toLocaleString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short',
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland' }) : '';
+    }
+
     const prefilledCount = computed(() => Object.keys(prefilled.value).length);
     function isPrefilled(i) { return !!prefilled.value[i]; }
     function touchAnswer(i) { if (prefilled.value[i]) delete prefilled.value[i]; }
@@ -529,6 +585,7 @@ createApp({
       loading, loadError, application, job, slots, settings,
       interviewStep, selectedSlotId, selectedSlot,
       prefilling, prefilledCount, isPrefilled, touchAnswer, skipSlot, prefillStatus, runPrefill,
+      messageText, sendingMessage, messageError, messageNote, sentMessages, sendMessage, formatSent,
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
