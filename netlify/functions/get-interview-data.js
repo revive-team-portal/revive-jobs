@@ -57,10 +57,11 @@ exports.handler = async (event) => {
 
     const job = jobRes[0] || null;
 
-    // Fetch available interview slots for this job (future slots only)
+    // Only times the applicant can actually choose: future AND not booked.
+    // Taken times used to be shown struck through (removed 6 Oct 2026 at Jeremy's request).
     const now = new Date().toISOString();
     const slotsRes = await supabaseQuery(
-      `${SUPABASE_URL}/rest/v1/interview_slots?job_id=eq.${application.job_id}&slot_time=gte.${now}&order=slot_time.asc&select=id,slot_time,is_booked,location_type`,
+      `${SUPABASE_URL}/rest/v1/interview_slots?job_id=eq.${application.job_id}&slot_time=gte.${now}&is_booked=eq.false&order=slot_time.asc&select=id,slot_time,is_booked,location_type`,
       SUPABASE_SERVICE_KEY
     );
 

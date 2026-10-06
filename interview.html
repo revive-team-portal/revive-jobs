@@ -332,7 +332,8 @@ createApp({
         const data = await res.json();
         application.value = data.application;
         job.value         = data.job;
-        slots.value       = data.slots || [];
+        // Never show a taken time, even if an older server version returns one.
+        slots.value       = (data.slots || []).filter(sl => !sl.is_booked);
         settings.value    = data.settings || {};
         // Initialise answers array
         answers.value = Array(interviewQuestions.value.length).fill('');
