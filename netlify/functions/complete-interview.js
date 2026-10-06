@@ -178,6 +178,11 @@ exports.handler = async (event) => {
       console.error('Application PDF failed (booking still saved)', err);
     }
 
+    // 8. Their typed address now replaces anything read off the CV for the
+    // suburb + distance shown on the admin tile.
+    try { await require('./_home').locate(application.id); }
+    catch (err) { console.error('Home location failed (form still saved)', err); }
+
     return {
       statusCode: 200,
       headers,

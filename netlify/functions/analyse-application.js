@@ -140,7 +140,13 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Could not save analysis' }) };
   }
 
-  return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch }) };
+  // Where they live + distance to the cafe, from the CV. Never overrides an
+  // address they typed on the interview form. A failure here never fails the analysis.
+  let home = null;
+  try { home = await require('./_home').locate(id, { cvOnly: true }); }
+  catch (err) { console.error('Home location failed', err); }
+
+  return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch, home }) };
 };
 
 async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, attachments, hasImage }) {
