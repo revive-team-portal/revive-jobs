@@ -92,8 +92,10 @@ exports.handler = async (event) => {
     if (file) attachment = await fetchAttachment(file.path, file.filename);
   }
 
+  // status tells the form why nothing came back, so it can say so instead of
+  // silently showing empty boxes: no_cv | nothing | error | filled.
   if (!cvText && !attachment && !app.cover_letter) {
-    return { statusCode: 200, headers, body: JSON.stringify({ prefill: {} }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ prefill: {}, status: 'no_cv' }) };
   }
 
   // Only ask about questions that are safe to answer for someone.
@@ -184,11 +186,11 @@ RULES - these matter more than being helpful:
       prefill[String(idx)] = clean.slice(0, 600);
     });
 
-    return { statusCode: 200, headers, body: JSON.stringify({ prefill }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ prefill, status: Object.keys(prefill).length ? 'filled' : (cvText || attachment ? 'nothing' : 'no_cv') }) };
   } catch (err) {
     console.error('Prefill failed', err);
     // A failed prefill must never block the form.
-    return { statusCode: 200, headers, body: JSON.stringify({ prefill: {} }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ prefill: {}, status: 'error' }) };
   }
 };
 

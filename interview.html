@@ -200,6 +200,16 @@
               Anything marked <strong>*</strong> was filled in by us &mdash; please read it and correct anything that is wrong.
             </p>
           </div>
+          <div v-else-if="prefillStatus === 'error'" class="mb-5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-900">
+            We couldn't read your CV just now, so nothing has been filled in.
+            <button type="button" @click="runPrefill(true)" class="font-bold underline ml-1">Try again</button>
+            or fill in the answers below.
+          </div>
+          <div v-else-if="prefillStatus === 'nothing' || prefillStatus === 'no_cv'" class="mb-5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600">
+            {{ prefillStatus === 'no_cv'
+              ? "We didn't receive a CV with your application, so please fill in the answers below."
+              : "We couldn't find these answers in your CV, so please fill them in below." }}
+          </div>
 
           <form @submit.prevent="submitForm" class="space-y-5">
 
@@ -326,6 +336,8 @@ createApp({
         settings.value    = data.settings || {};
         // Initialise answers array
         answers.value = Array(interviewQuestions.value.length).fill('');
+        // Read the CV while they choose a time, so the answers are ready on step 2.
+        if (!data.application.extended_form_completed) runPrefill();
       } catch {
         loadError.value = true;
       } finally {
@@ -336,23 +348,31 @@ createApp({
     // ── Step 1 → 2 ───────────────────────────────────────────
     const prefilling  = ref(false);
     const prefilled    = ref({});   // question index -> true while still untouched
+    // '' = not run yet, 'filled', 'nothing' (CV had no answers), 'no_cv', 'error'.
+    // Before 6 Oct 2026 the form said nothing when no answers came back, so a
+    // CV with nothing usable looked exactly like the feature being broken.
+    const prefillStatus = ref('');
 
     const prefilledCount = computed(() => Object.keys(prefilled.value).length);
     function isPrefilled(i) { return !!prefilled.value[i]; }
     function touchAnswer(i) { if (prefilled.value[i]) delete prefilled.value[i]; }
 
     // Fill in what the CV already answers, so the applicant checks rather than retypes.
-    async function runPrefill() {
+    async function runPrefill(retry) {
       if (prefilling.value) return;
+      // Started in the background as soon as the page loads; only re-run on Try again.
+      if (prefillStatus.value && !(retry === true && prefillStatus.value === 'error')) return;
       prefilling.value = true;
+      let status = 'error';
       try {
         const res = await fetch('/.netlify/functions/prefill-form', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         });
-        const data = await res.json().catch(() => ({}));
-        const map = (data && data.prefill) || {};
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data) throw new Error('prefill ' + res.status);
+        const map = data.prefill || {};
         Object.keys(map).forEach(k => {
           const i = parseInt(k, 10);
           if (Number.isNaN(i) || i >= interviewQuestions.value.length) return;
@@ -360,9 +380,11 @@ createApp({
           answers.value[i] = map[k];
           prefilled.value[i] = true;
         });
+        status = Object.keys(map).length ? 'filled' : (data.status === 'no_cv' ? 'no_cv' : (data.status === 'error' ? 'error' : 'nothing'));
       } catch (e) {
         console.warn('Prefill unavailable', e);
       } finally {
+        prefillStatus.value = status;
         prefilling.value = false;
       }
     }
@@ -505,7 +527,7 @@ createApp({
     return {
       loading, loadError, application, job, slots, settings,
       interviewStep, selectedSlotId, selectedSlot,
-      prefilling, prefilledCount, isPrefilled, touchAnswer, skipSlot,
+      prefilling, prefilledCount, isPrefilled, touchAnswer, skipSlot, prefillStatus, runPrefill,
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
