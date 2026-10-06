@@ -10,7 +10,6 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 const RESEND_API_KEY = process.env.RESEND_KEY;
-const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -37,7 +36,7 @@ exports.handler = async (event) => {
   const { token, slotId, answers, declarationsAgreed } = body;
 
   // The form can be completed without booking a time; the slot is optional.
-  if (!token || (!body.rebuildPdf && !body.bookOnly && !declarationsAgreed)) {
+  if (!token || (!body.rebuildPdf && !body.bookOnly && !body.reschedule && !declarationsAgreed)) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required fields' }) };
   }
 
@@ -60,6 +59,29 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, rebuilt: true }) };
     }
 
+    // Reschedule (6 Oct 2026): the Reschedule button in the confirmation email
+    // opens interview.html?reschedule=1. Book the new time first, then release
+    // the old one, so a failure never leaves them with no interview at all.
+    if (body.reschedule) {
+      const oldSlotId = application.interview_slot_id;
+      if (!oldSlotId) return { statusCode: 409, headers, body: JSON.stringify({ error: "You don't have an interview booked yet." }) };
+      if (!slotId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Please choose a new time.' }) };
+      if (slotId === oldSlotId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'That is already your interview time.' }) };
+      // bookSlot links the slot to the application when the form is complete; force that here.
+      const booked = await bookSlot({ ...application, extended_form_completed: true }, slotId);
+      if (booked.error) return { statusCode: booked.status, headers, body: JSON.stringify({ error: booked.error }) };
+      await releaseSlot(oldSlotId, application.id);
+      application.interview_slot_id = slotId;
+      const jr = await supabaseGet(
+        `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
+      );
+      const rjob = (jr && jr[0]) || {};
+      const when = formatSlot(booked.slot.slot_time);
+      await sendInterviewConfirmation(application, rjob, when, token);
+      try { await rebuildPdfFor(application); } catch (e) { console.error('PDF rebuild after reschedule failed (booking still saved)', e); }
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, slotTime: when, rescheduled: true }) };
+    }
+
     // Form already done but no time picked yet: the applicant has come back to the
     // same link to choose one (the form promises they can). Book only.
     if (application.extended_form_completed && body.bookOnly) {
@@ -75,7 +97,7 @@ exports.handler = async (event) => {
       );
       const bjob = (jr && jr[0]) || {};
       const when = formatSlot(booked.slot.slot_time);
-      await sendInterviewConfirmation(application, bjob, when);
+      await sendInterviewConfirmation(application, bjob, when, token);
       try { await rebuildPdfFor(application); } catch (e) { console.error('PDF rebuild after booking failed (booking still saved)', e); }
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, slotTime: when }) };
     }
@@ -126,7 +148,7 @@ exports.handler = async (event) => {
       const detail = await appPatch.text().catch(() => '');
       console.error('Application save failed', appPatch.status, detail);
       if (slotId) await releaseSlot(slotId, application.id);
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'We could not save your form — please try again. If it keeps happening, email jobs@revivealicious.com.' }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'We could not save your form — please try again. If it keeps happening, reply to the email we sent you.' }) };
     }
 
     // 5. Fetch job for the email and the PDF
@@ -144,7 +166,7 @@ exports.handler = async (event) => {
 
     // Route through send-email so this uses the editable Settings template and
     // the same reply-to rules as every other email, rather than its own copy.
-    if (slot) await sendInterviewConfirmation(application, job, slotTime);
+    if (slot) await sendInterviewConfirmation(application, job, slotTime, token);
 
     // 7. Build a one-page PDF of the completed application and attach it to
     // their documents, so the whole application is one printable record.
@@ -219,7 +241,7 @@ function formatSlot(iso) {
 
 // Route through send-email so this uses the editable Settings template and
 // the same reply-to rules as every other email, rather than its own copy.
-async function sendInterviewConfirmation(application, job, slotTime) {
+async function sendInterviewConfirmation(application, job, slotTime, token) {
   try {
     const base = process.env.URL || 'https://jobs.revive.co.nz';
     const res = await fetch(`${base}/.netlify/functions/send-email`, {
@@ -235,7 +257,9 @@ async function sendInterviewConfirmation(application, job, slotTime) {
         jobType: job.type,
         interviewTime: slotTime,
         employerName: job.employer_name,
-        interviewLocation: interviewLocation(job)
+        interviewLocation: interviewLocation(job),
+        // Reschedule button in the email: same link, straight into choosing a new time.
+        rescheduleLink: token ? `${base}/interview.html?token=${encodeURIComponent(token)}&reschedule=1` : ''
       })
     });
     if (!res.ok) console.error('Interview confirmation email failed', res.status, await res.text().catch(() => ''));
@@ -307,71 +331,6 @@ async function supabasePatch(url, data) {
     body: JSON.stringify(data)
   });
   return res; // Return raw response so caller can check .ok
-}
-
-// ============================================================
-// CONFIRMATION EMAIL
-// ============================================================
-
-async function sendConfirmationEmail({ applicantName, applicantEmail, jobTitle, interviewTime, employerName, replyTo }) {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Open Sans',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-        <tr>
-          <td style="background:#40d134;padding:32px;text-align:center;">
-            <img src="https://jobs.revive.co.nz/images/revive-logo-ring.png" alt="Revive Cafe" width="64" height="64" style="width:64px;height:64px;display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
-            <span style="color:#fff;font-size:22px;font-weight:700;">Interview Confirmed ✓</span>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:32px;">
-            <p style="font-size:16px;color:#333;margin:0 0 16px;">Hi <strong>${applicantName}</strong>,</p>
-            <p style="font-size:15px;color:#555;line-height:1.6;margin:0 0 24px;">Your interview has been confirmed. Here are the details:</p>
-            <div style="background:#f0fdf0;border-radius:6px;padding:24px;margin-bottom:24px;border:2px solid #b5edb1;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="padding:6px 0;color:#666;width:140px;">Interview Time</td><td style="padding:6px 0;font-weight:700;font-size:16px;color:#333;">${interviewTime}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Position</td><td style="padding:6px 0;">${jobTitle}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Location</td><td style="padding:6px 0;">Revive Cafe, Auckland CBD</td></tr>
-              </table>
-            </div>
-            <p style="color:#555;font-size:14px;line-height:1.6;">Please arrive a few minutes early. If you need to reschedule, contact us at <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a></p>
-            <p style="color:#555;font-size:14px;">We look forward to meeting you!</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#333;padding:24px;text-align:center;">
-            <p style="color:#aaa;font-size:13px;margin:0;">
-              Warm regards,<br>
-              <strong style="color:#fff;">${employerName || 'The Revive Cafe Team'}</strong><br>
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: applicantEmail,
-      reply_to: replyTo || 'jobs@revivealicious.com',
-      subject: `Interview Confirmed — ${jobTitle} at Revive Cafe`,
-      html
-    })
-  });
 }
 
 // Where the interview happens, as one line for the email.

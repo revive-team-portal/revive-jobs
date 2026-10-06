@@ -51,7 +51,7 @@ exports.handler = async (event) => {
 
     // Fetch job details
     const jobRes = await supabaseQuery(
-      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=id,title,type,description,employer_name,interview_location_type,interview_location_detail,interview_meeting_link`,
+      `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=id,title,type,description,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`,
       SUPABASE_SERVICE_KEY
     );
 
@@ -64,6 +64,16 @@ exports.handler = async (event) => {
       `${SUPABASE_URL}/rest/v1/interview_slots?job_id=eq.${application.job_id}&slot_time=gte.${now}&is_booked=eq.false&order=slot_time.asc&select=id,slot_time,is_booked,location_type`,
       SUPABASE_SERVICE_KEY
     );
+
+    // Their current booking (it is booked, so it is not in the open list above).
+    let currentSlotTime = null;
+    if (application.interview_slot_id) {
+      const cur = await supabaseQuery(
+        `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${application.interview_slot_id}&select=slot_time`,
+        SUPABASE_SERVICE_KEY
+      );
+      currentSlotTime = (cur[0] && cur[0].slot_time) || null;
+    }
 
     // Fetch settings needed for the interview page
     const settingsRes = await supabaseQuery(
@@ -91,6 +101,7 @@ exports.handler = async (event) => {
           applicant_messages: Array.isArray(application.applicant_messages) ? application.applicant_messages : []
         },
         job,
+        current_slot_time: currentSlotTime,
         slots: slotsRes,
         settings
       })

@@ -7,7 +7,11 @@
 const RESEND_API_KEY = process.env.RESEND_KEY;
 const { SETTINGS_KEYS: BENEFIT_KEYS, benefitsTextFor } = require('./_benefits');
 const FROM_EMAIL = 'Revive Cafe Jobs <jobs@revivealicious.com>';
-const DEFAULT_REPLY_TO = 'jobs@revivealicious.com';
+// jobs@revivealicious.com is only the technical sending address (the domain verified
+// with Resend) — it is not a mailbox, so it is never shown to applicants. Every
+// visible address and every Reply-To is the job's own email (jobs.employer_email).
+// This fallback is only used if a job somehow has no email set.
+const DEFAULT_REPLY_TO = 'jobs@revive.co.nz';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
@@ -63,6 +67,11 @@ function renderTemplate(bodyText, values, headline, contactEmail) {
   const filled = fillTokens(bodyText, values);
   const blocks = filled.split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(b => {
     if (/^-{3,}$/.test(b)) return '<hr style="border:none;border-top:1px solid #e5e5e5;margin:20px 0;">';
+    // A paragraph that is only [Label](https://…) renders as a button (e.g. Reschedule).
+    // If the link token was empty, drop the button rather than show the raw syntax.
+    const btn = b.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (btn) return `<p style="margin:8px 0 24px;"><a href="${esc(btn[2])}" style="display:inline-block;background:#40d134;color:#ffffff;font-weight:700;font-size:15px;text-decoration:none;padding:12px 26px;border-radius:6px;">${esc(btn[1])}</a></p>`;
+    if (/^\[[^\]]+\]\(\s*\)$/.test(b)) return '';
     const withBreaks = esc(b).replace(/\n/g, '<br>')
       .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#40d134;">$1</a>');
     return `<p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 16px;">${withBreaks}</p>`;
@@ -115,7 +124,9 @@ function templateValues(data) {
     interview_time: data.interviewTime || '',
     interview_location: data.interviewLocation || '',
     employer_name: data.employerName || 'The Revive Cafe Team',
-    employer_email: data.employerEmail || 'jobs@revivealicious.com'
+    employer_email: data.employerEmail || DEFAULT_REPLY_TO,
+    // Reschedule button target (interview.html?token=…&reschedule=1), from complete-interview.
+    reschedule_link: data.rescheduleLink || ''
   };
 }
 
@@ -252,6 +263,7 @@ exports.handler = async (event) => {
   try {
     if (type !== 'bulk_rejection') data = await enrichFromJob(data);
     const replyTo = await resolveReplyTo(data);
+    if (!data.employerEmail) data.employerEmail = replyTo;
     let emailPayload = await buildFromTemplate(type, data, replyTo);
 
     switch (type) {
@@ -390,7 +402,7 @@ function buildConfirmationEmail(data) {
             <p style="color:#aaa;font-size:13px;margin:0;">
               Warm regards,<br>
               <strong style="color:#fff;">The Revive Cafe Team</strong><br>
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
+              <a href="mailto:${esc(data.employerEmail || DEFAULT_REPLY_TO)}" style="color:#40d134;">${esc(data.employerEmail || DEFAULT_REPLY_TO)}</a>
             </p>
           </td>
         </tr>
@@ -498,7 +510,7 @@ function buildInterviewInviteEmail(data) {
             <p style="color:#aaa;font-size:13px;margin:0;">
               Warm regards,<br>
               <strong style="color:#fff;">${employerName || 'The Revive Cafe Team'}</strong><br>
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
+              <a href="mailto:${esc(data.employerEmail || DEFAULT_REPLY_TO)}" style="color:#40d134;">${esc(data.employerEmail || DEFAULT_REPLY_TO)}</a>
             </p>
           </td>
         </tr>
@@ -543,14 +555,13 @@ function buildInterviewConfirmationEmail(data) {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="padding:6px 0;color:#666;width:140px;">Interview Time</td><td style="padding:6px 0;font-weight:700;font-size:16px;color:#333;">${interviewTime}</td></tr>
                 <tr><td style="padding:6px 0;color:#666;">Position</td><td style="padding:6px 0;">${jobTitle}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Location</td><td style="padding:6px 0;">Revive Cafe, Auckland CBD</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">Location</td><td style="padding:6px 0;">${esc(data.interviewLocation || '24 Wyndham St, Auckland CBD')}</td></tr>
               </table>
             </div>
 
-            <p style="color:#555;font-size:14px;line-height:1.6;">
-              Please arrive a few minutes early. If you need to reschedule, please contact us at
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a> as soon as possible.
-            </p>
+            ${data.rescheduleLink ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 10px;">Need to change the time? Choose a new one here:</p>
+            <p style="margin:0 0 24px;"><a href="${esc(data.rescheduleLink)}" style="display:inline-block;background:#40d134;color:#ffffff;font-weight:700;font-size:15px;text-decoration:none;padding:12px 26px;border-radius:6px;">Reschedule my interview</a></p>` : ''}
+            <p style="color:#555;font-size:14px;line-height:1.6;">Any questions? Email <a href="mailto:${esc(data.employerEmail || DEFAULT_REPLY_TO)}" style="color:#40d134;">${esc(data.employerEmail || DEFAULT_REPLY_TO)}</a>.</p>
             <p style="color:#555;font-size:14px;">We look forward to meeting you!</p>
           </td>
         </tr>
@@ -559,7 +570,7 @@ function buildInterviewConfirmationEmail(data) {
             <p style="color:#aaa;font-size:13px;margin:0;">
               Warm regards,<br>
               <strong style="color:#fff;">${employerName || 'The Revive Cafe Team'}</strong><br>
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
+              <a href="mailto:${esc(data.employerEmail || DEFAULT_REPLY_TO)}" style="color:#40d134;">${esc(data.employerEmail || DEFAULT_REPLY_TO)}</a>
             </p>
           </td>
         </tr>
@@ -615,7 +626,7 @@ function buildRejectionEmail(data) {
             <p style="color:#aaa;font-size:13px;margin:0;">
               Warm regards,<br>
               <strong style="color:#fff;">The Revive Cafe Team</strong><br>
-              <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
+              <a href="mailto:${esc(data.employerEmail || DEFAULT_REPLY_TO)}" style="color:#40d134;">${esc(data.employerEmail || DEFAULT_REPLY_TO)}</a>
             </p>
           </td>
         </tr>
@@ -638,7 +649,7 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
   const results = [];
   for (const applicant of applicants) {
     try {
-      const data = { applicantName: applicant.full_name, applicantEmail: applicant.email, jobTitle };
+      const data = { applicantName: applicant.full_name, applicantEmail: applicant.email, jobTitle, employerEmail: replyTo || DEFAULT_REPLY_TO };
       let emailPayload;
       if ((tpl.email_rejection_body || '').trim()) {
         const values = templateValues(data);

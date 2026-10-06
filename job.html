@@ -489,7 +489,7 @@ createApp({
       } catch (e) {
         formError.value = (e && e.message && e.message !== 'save failed' && e.message.length < 120)
           ? e.message
-          : 'Something went wrong — please try again or email jobs@revivealicious.com';
+          : 'Something went wrong — please try again' + (job.value && job.value.employer_email ? ' or email ' + job.value.employer_email : '') + '.';
       }
       submitting.value = false;
     }

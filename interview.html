@@ -49,16 +49,24 @@
   <div v-else-if="loadError" class="max-w-lg mx-auto px-4 py-16 text-center">
     <div class="text-6xl mb-4">🔒</div>
     <h2 class="text-2xl font-bold text-gray-800 mb-2">Link Not Valid</h2>
-    <p class="text-gray-500 mb-6">This link may have expired or already been used. Please contact us at <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a> if you need help.</p>
+    <p class="text-gray-500 mb-6">This link may have expired or already been used. If you need help, just reply to the email we sent you.</p>
   </div>
 
   <!-- Already completed -->
-  <div v-else-if="application && application.extended_form_completed && (application.interview_slot_id || !slots.length)" class="max-w-lg mx-auto px-4 py-16 text-center">
+  <div v-else-if="application && application.extended_form_completed && !rescheduleMode && (application.interview_slot_id || !slots.length)" class="max-w-lg mx-auto px-4 py-16 text-center">
     <div class="text-6xl mb-4">✅</div>
     <h2 class="text-2xl font-bold text-gray-800 mb-2">You're all set!</h2>
-    <p v-if="application.interview_slot_id" class="text-gray-600 mb-2">You've already completed your interview booking.</p>
+    <template v-if="application.interview_slot_id">
+      <p class="text-gray-600 mb-2">Your interview is booked for:</p>
+      <p v-if="currentSlotTime" class="font-extrabold text-lg mb-1" style="color:#40d134;">{{ formatWhen(currentSlotTime) }}</p>
+      <p class="text-gray-500 text-sm mb-5">The interview link and details are in your confirmation email.</p>
+      <button type="button" @click="startReschedule"
+        class="bg-white border-2 border-gray-300 hover:border-brand text-gray-700 px-6 py-2.5 rounded-lg text-sm font-bold transition-colors mb-5">
+        Change my interview time
+      </button>
+    </template>
     <p v-else class="text-gray-600 mb-2">We have your application form. There are no interview times open right now &mdash; we'll be in touch.</p>
-    <p class="text-gray-500 text-sm">If you need to make changes, contact <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a></p>
+    <p v-if="contactEmail" class="text-gray-500 text-sm">Any questions? Email <a :href="'mailto:' + contactEmail" style="color:#40d134;">{{ contactEmail }}</a></p>
   </div>
 
   <!-- Main Content -->
@@ -75,7 +83,8 @@
         <div>
           <h1 class="text-xl font-extrabold text-gray-900">Hi {{ application.full_name }}! 👋</h1>
           <p class="text-gray-600 mt-1 text-sm">You've been invited to interview for <strong>{{ job && job.title }}</strong> at Revive Cafe.</p>
-          <p v-if="bookOnly" class="text-gray-500 text-xs mt-1">We have your application form &mdash; just choose a time below to confirm your interview.</p>
+          <p v-if="rescheduleMode" class="text-gray-500 text-xs mt-1">Your interview is currently booked for <strong>{{ formatWhen(currentSlotTime) }}</strong>. Choose a new time below &mdash; your current time is released as soon as you do.</p>
+          <p v-else-if="bookOnly" class="text-gray-500 text-xs mt-1">We have your application form &mdash; just choose a time below to confirm your interview.</p>
           <p v-else class="text-gray-500 text-xs mt-1">Please complete both steps below to confirm your interview.</p>
         </div>
       </div>
@@ -84,27 +93,30 @@
     <!-- Success -->
     <div v-if="submitted" class="bg-white rounded-2xl border-2 border-brand p-10 text-center">
       <div class="text-6xl mb-4">🎉</div>
-      <h2 class="text-2xl font-extrabold text-gray-900 mb-3">Interview Confirmed!</h2>
-      <p class="text-gray-600 mb-2">Your interview has been booked for:</p>
+      <h2 class="text-2xl font-extrabold text-gray-900 mb-3">{{ wasRescheduled ? 'Interview Moved!' : 'Interview Confirmed!' }}</h2>
+      <p class="text-gray-600 mb-2">Your interview is booked for:</p>
       <div class="bg-brand-pale border border-brand-light rounded-xl p-4 mb-6 inline-block">
         <p class="font-extrabold text-xl" style="color:#40d134;">{{ confirmedSlotTime }}</p>
-        <p class="text-gray-600 text-sm mt-1">Revive Cafe, Auckland CBD</p>
+        <p class="text-gray-600 text-sm mt-1">{{ isVideoInterview ? 'Video call' : slotWhereFull() }}</p>
       </div>
-      <p class="text-gray-500 text-sm">A confirmation email has been sent to <strong>{{ application.email }}</strong>.</p>
-      <p class="text-gray-400 text-xs mt-2">Need to reschedule? Contact jobs@revivealicious.com</p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 max-w-md mx-auto">
+        <p class="text-sm font-bold text-amber-900">{{ isVideoInterview ? 'Your interview link is in your email' : 'Your interview details are in your email' }}</p>
+        <p class="text-xs text-amber-800 mt-0.5">We've just sent a confirmation email to <strong>{{ application.email }}</strong>{{ isVideoInterview ? ' with the link to join the video call' : '' }}. Please keep it &mdash; if you don't see it, check your junk or spam folder.</p>
+      </div>
+      <p class="text-gray-500 text-xs mt-2">Need to change the time? Use the <strong>Reschedule</strong> button in that email.</p>
     </div>
 
     <!-- Steps -->
     <div v-else>
 
       <!-- Progress indicator -->
-      <div v-if="!bookOnly" class="flex items-center justify-center gap-2 mb-6">
+      <div v-if="!bookOnly && !rescheduleMode" class="flex items-center justify-center gap-2 mb-6">
         <div v-for="s in 2" :key="s" class="flex items-center gap-2">
           <div class="step-dot" :style="{ background: interviewStep >= s ? '#40d134' : '#e5e7eb', color: interviewStep >= s ? 'white' : '#9ca3af' }">{{ s }}</div>
           <div v-if="s < 2" class="w-12 h-0.5" :style="{ background: interviewStep > s ? '#40d134' : '#e5e7eb' }"></div>
         </div>
       </div>
-      <p v-if="!bookOnly" class="text-center text-sm text-gray-500 mb-6">
+      <p v-if="!bookOnly && !rescheduleMode" class="text-center text-sm text-gray-500 mb-6">
         <span v-if="interviewStep === 1">Step 1: Select Interview Time</span>
         <span v-else>Step 2: Additional Information</span>
       </p>
@@ -115,7 +127,7 @@
         <p class="text-gray-500 text-sm mb-6">Select your preferred time slot. Slots are first come, first served.</p>
 
         <div v-if="!slots.length" class="py-8 text-center">
-          <p class="text-gray-500 text-sm">No interview slots available right now. Please contact <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a></p>
+          <p class="text-gray-500 text-sm">No interview times are available right now. Send us a message below<template v-if="contactEmail"> or email <a :href="'mailto:' + contactEmail" style="color:#40d134;">{{ contactEmail }}</a></template></p>
         </div>
 
         <div v-else>
@@ -144,10 +156,12 @@
 
         <div v-if="slotError" class="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{{ slotError }}</div>
 
-        <div v-if="bookOnly" class="flex justify-end mt-6">
+        <div v-if="bookOnly || rescheduleMode" class="flex flex-wrap justify-end items-center gap-3 mt-6">
+          <button v-if="rescheduleMode" type="button" @click="cancelReschedule"
+            class="text-gray-500 hover:text-gray-800 underline text-sm font-semibold">Keep my current time</button>
           <button @click="bookTime" :disabled="!selectedSlotId || submitting"
             class="bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-bold transition-colors shadow-md">
-            {{ submitting ? 'Booking\u2026' : 'Book this time' }}
+            {{ submitting ? 'Booking\u2026' : (rescheduleMode ? 'Move my interview to this time' : 'Book this time') }}
           </button>
         </div>
         <div v-else class="flex flex-wrap justify-between items-center gap-3 mt-6">
@@ -287,7 +301,7 @@
   </div>
 
   <div class="text-center py-8 text-xs text-gray-400">
-    Questions? <a href="mailto:jobs@revivealicious.com" style="color:#40d134;">jobs@revivealicious.com</a>
+    <template v-if="contactEmail">Questions? <a :href="'mailto:' + contactEmail" style="color:#40d134;">{{ contactEmail }}</a></template>
   </div>
 
 </div>
@@ -313,12 +327,26 @@ createApp({
     const submitted        = ref(false);
     // Form already filled in, no time yet: they came back to pick one.
     const bookOnly = computed(() => !!(application.value && application.value.extended_form_completed && !application.value.interview_slot_id));
+    // Already booked and asked to change the time (button on the all-set screen or ?reschedule=1).
+    const rescheduleMode = computed(() => !!(rescheduling.value && application.value && application.value.extended_form_completed && application.value.interview_slot_id));
+    function startReschedule() { rescheduling.value = true; selectedSlotId.value = null; selectedSlot.value = null; slotError.value = ''; window.scrollTo({ top: 0 }); }
+    function cancelReschedule() { rescheduling.value = false; selectedSlotId.value = null; selectedSlot.value = null; slotError.value = ''; }
+    function formatWhen(iso) {
+      return iso ? new Date(iso).toLocaleString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long',
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland' }) : '';
+    }
     const submitting       = ref(false);
     const formError        = ref('');
     const slotError        = ref('');
     const confirmedSlotTime = ref('');
 
     const token = new URLSearchParams(window.location.search).get('token');
+    // ?reschedule=1 comes from the Reschedule button in the confirmation email.
+    const rescheduling = ref(new URLSearchParams(window.location.search).get('reschedule') === '1');
+    const currentSlotTime = ref(null);
+    const wasRescheduled = ref(false);
+    // Every contact address on this page is the job's own email (set on the job in the admin).
+    const contactEmail = computed(() => (job.value && job.value.employer_email) || '');
 
     // ── Derived ──────────────────────────────────────────────
     const interviewQuestions = computed(() =>
@@ -354,6 +382,7 @@ createApp({
         const data = await res.json();
         application.value = data.application;
         job.value         = data.job;
+        currentSlotTime.value = data.current_slot_time || null;
         // Never show a taken time, even if an older server version returns one.
         slots.value       = (data.slots || []).filter(sl => !sl.is_booked);
         settings.value    = data.settings || {};
@@ -507,7 +536,7 @@ createApp({
         submitted.value = true;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch {
-        formError.value = 'Network error. Please try again or contact jobs@revivealicious.com';
+        formError.value = 'Network error. Please try again' + (contactEmail.value ? ' or email ' + contactEmail.value : '') + '.';
       } finally {
         submitting.value = false;
       }
@@ -522,7 +551,9 @@ createApp({
         const res = await fetch('/.netlify/functions/complete-interview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, slotId: selectedSlotId.value, bookOnly: true })
+          body: JSON.stringify(rescheduleMode.value
+            ? { token, slotId: selectedSlotId.value, reschedule: true }
+            : { token, slotId: selectedSlotId.value, bookOnly: true })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -531,10 +562,11 @@ createApp({
           return;
         }
         confirmedSlotTime.value = data.slotTime;
+        wasRescheduled.value = !!data.rescheduled;
         submitted.value = true;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch {
-        slotError.value = 'Network error. Please try again or contact jobs@revivealicious.com';
+        slotError.value = 'Network error. Please try again' + (contactEmail.value ? ' or email ' + contactEmail.value : '') + '.';
       } finally {
         submitting.value = false;
       }
@@ -589,7 +621,7 @@ createApp({
       answers, declarationsAgreed, submitted, submitting,
       formError, slotError, confirmedSlotTime,
       interviewQuestions, declarations, slotsByDate,
-      bookOnly, bookTime,
+      bookOnly, bookTime, rescheduleMode, startReschedule, cancelReschedule, currentSlotTime, wasRescheduled, contactEmail, formatWhen,
       goToStep2, submitForm, formatDate, formatTime, formatSlotFull, slotWhere, slotWhereFull, isVideoInterview
     };
   }
