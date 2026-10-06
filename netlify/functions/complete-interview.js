@@ -72,6 +72,7 @@ exports.handler = async (event) => {
       if (booked.error) return { statusCode: booked.status, headers, body: JSON.stringify({ error: booked.error }) };
       await releaseSlot(oldSlotId, application.id);
       application.interview_slot_id = slotId;
+      await advanceStatus(application.id, 'interview_accepted');
       const jr = await supabaseGet(
         `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
       );
@@ -92,6 +93,7 @@ exports.handler = async (event) => {
       const booked = await bookSlot(application, slotId);
       if (booked.error) return { statusCode: booked.status, headers, body: JSON.stringify({ error: booked.error }) };
       application.interview_slot_id = slotId;
+      await advanceStatus(application.id, 'interview_accepted');
       const jr = await supabaseGet(
         `${SUPABASE_URL}/rest/v1/jobs?id=eq.${application.job_id}&select=title,type,employer_name,employer_email,interview_location_type,interview_location_detail,interview_meeting_link`
       );
@@ -140,8 +142,7 @@ exports.handler = async (event) => {
         declarations_agreed: true,
         declarations_agreed_at: new Date().toISOString(),
         extended_form_completed: true,
-        interview_notes: JSON.stringify(questionAnswers),
-        status: 'interview'
+        interview_notes: JSON.stringify(questionAnswers)
       }
     );
     if (!appPatch.ok) {
@@ -150,6 +151,7 @@ exports.handler = async (event) => {
       if (slotId) await releaseSlot(slotId, application.id);
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'We could not save your form — please try again. If it keeps happening, reply to the email we sent you.' }) };
     }
+    await advanceStatus(application.id, slotId ? 'interview_accepted' : 'interview_offered');
 
     // 5. Fetch job for the email and the PDF
     const jobRes = await supabaseGet(
@@ -202,6 +204,23 @@ exports.handler = async (event) => {
 // Book a slot for this application. The PATCH is filtered on is_booked=false and
 // asks for the changed rows back, so a slot someone else just took returns zero
 // rows instead of a silent 204 that looked like success.
+// Status (7 Oct 2026): 'interview' was split into interview_offered (invited,
+// no time yet) and interview_accepted (time booked). Only moves people forward:
+// the status filter means Hired / Not Hired / Not Suitable / Deleted are never
+// overwritten. A failure is logged, never fails the booking.
+const ADVANCE_FROM = {
+  interview_offered:  ['new', 'ai_shortlist', 'shortlist_a', 'shortlist_b', 'interview'],
+  interview_accepted: ['new', 'ai_shortlist', 'shortlist_a', 'shortlist_b', 'interview', 'interview_offered']
+};
+async function advanceStatus(appId, status) {
+  try {
+    const from = ADVANCE_FROM[status];
+    const r = await supabasePatch(
+      `${SUPABASE_URL}/rest/v1/applications?id=eq.${appId}&status=in.(${from.join(',')})`, { status });
+    if (!r.ok) console.error('Status update failed', status, r.status, await r.text().catch(() => ''));
+  } catch (e) { console.error('Status update failed', status, e); }
+}
+
 async function bookSlot(application, slotId) {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/interview_slots?id=eq.${encodeURIComponent(slotId)}&job_id=eq.${application.job_id}&is_booked=eq.false&select=id,slot_time`,
