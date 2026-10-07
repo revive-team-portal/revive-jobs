@@ -10,18 +10,19 @@
 //   green = fine / nothing to check
 // and writes {"q1":{"flag","reason"},...} to applications.form_flags.
 //
-// Called by the admin, via form-flags, for any completed form that has no
-// flags yet (on job load, and when live refresh brings in a newly completed
-// form). Deliberately NOT called inside complete-interview: that function
-// already does booking + email + PDF + location inside Netlify's 10 s limit,
-// and the applicant's submit must never wait on this.
+// Called by the admin, via form-flags-background, for any completed form
+// that has no flags yet (on job load, and when live refresh brings in a newly
+// completed form). Deliberately NOT called inside complete-interview: that
+// function already does booking + email + PDF + location inside Netlify's
+// 10 s limit, and the applicant's submit must never wait on this. A Sonnet
+// call takes 6-12 s, hence the background function.
 // No npm packages (revive-jobs has no package.json) - fetch only.
 // ============================================================
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SVC_KEY;
 const CLAUDE_API_KEY = process.env.CLAUDE_KEY;
-const MODEL = 'claude-haiku-4-5-20251001';   // fast: must finish inside Netlify's 10 s sync limit
+const MODEL = 'claude-sonnet-4-6';   // runs in a -background function, so speed is not critical
 const FLAGS = ['red', 'amber', 'green'];
 
 function svc(extra) {
@@ -104,14 +105,14 @@ Rules:
 - Hours or days not available: a clash with the role's shift days/hours = red; a minor limit that doesn't clash = amber; fully available = green.
 - Hours wanted: a mismatch with the role (e.g. wants part time for a full-time role, or a study-visa hours cap) = amber or red by size.
 - Study: currently studying = amber (hours caps, exams, timetable); finished or not studying = green.
-- Medical questions: "No"/blank = green. Any condition disclosed = amber with reason "Discuss any support needed" — never red unless they say it stops them doing the job. Do not speculate about a condition.
+- Medical questions: "No"/blank = green. Any condition disclosed = amber with the reason exactly "Discuss any support needed" — never red unless they say it stops them doing the job. Never comment on or speculate about the condition.
 - Court convictions or court action: anything other than no = red.
 - Overtime / short notice: no or reluctant = amber.
 - Referees: fewer than two, or only friends/partner/family, or no contact details = amber.
 - Identification: none offered = amber.
-- Living situation: temporary (hostel, backpackers, short-term) = amber.
+- Address and living situation: flatting, renting, living with family/partner or own home = green. Only hostel, backpackers, couch-surfing or "looking for a place" = amber.
 - "Anything else that could affect employment": anything substantive = amber, or red if it clearly conflicts with the role.
-- A blank answer to a question that needed one (commitment, holidays, availability, referees) = amber "Not answered".
+- A blank answer to a question that needed one (address, ID, commitment, holidays, availability, referees) = amber "Not answered". Blank medical, conviction, study or visa answers = green.
 - Never flag anything because of nationality, ethnicity, age, gender, religion or family status.
 
 Reason: max 12 words, specific (dates, months, days). For green use "" unless a short note helps.
