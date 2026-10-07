@@ -41,6 +41,21 @@ function nzToday() {
   });
 }
 
+// Models get month arithmetic across a year boundary wrong (said Feb 2027 was
+// "16 months" away on 7 Oct 2026), so hand it a lookup table instead.
+function monthsTable() {
+  const p = new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', year: 'numeric', month: 'numeric' })
+    .formatToParts(new Date());
+  let y = +p.find(x => x.type === 'year').value, m = +p.find(x => x.type === 'month').value - 1;
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const out = [];
+  for (let i = 0; i <= 24; i++) {
+    out.push(`${names[m]} ${y} = ${i} month${i === 1 ? '' : 's'} away`);
+    if (++m === 12) { m = 0; y++; }
+  }
+  return out.join('; ');
+}
+
 function stripTags(html) {
   return String(html || '').replace(/<\/(p|li|div|h\d)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
@@ -82,6 +97,7 @@ async function flagForm(applicationId) {
   const prompt = `You are checking a job applicant's completed application form for Revive Cafe (Auckland, NZ) so the manager can see at a glance which answers need attention.
 
 TODAY (NZ): ${nzToday()}
+MONTHS FROM TODAY (use this table, do not do your own date arithmetic): ${monthsTable()}. Anything later is over 24 months away.
 ROLE: ${job.title || 'unknown'}${job.type ? ' (' + String(job.type).replace(/_/g, ' ') + ')' : ''}${job.min_hours ? ', min ' + job.min_hours + ' hrs/week' : ''}${job.start_asap ? ', start ASAP' : (job.start_date ? ', start ' + job.start_date : '')}
 ROLE DETAILS (for shift days/hours):
 ${stripTags(job.description).slice(0, 2500)}
@@ -102,7 +118,7 @@ Rules:
     ? 'casual role: 6+ months green, 3-5 months amber, under 3 months red.'
     : 'permanent / non-casual role: 12+ months green, 6-11 months amber, under 6 months red.'} "Long term", "indefinitely", "as long as needed" = green. Vague "about a year?" = green. A visa or per-employer limit that caps the commitment counts.
 - Visa / work period: a per-employer limit or visa expiry that ends within 6 months of today = red; within 12 months = amber; citizen, resident or long open work visa = green. Use the visa line above as well as the answer. If the answer is blank and they are not on a visa, green.
-- Hours or days not available: a clash with the role's shift days/hours = red; a minor limit that doesn't clash = amber; fully available = green.
+- Hours or days not available: a clash with the role's core shift days/hours = red; a clash with some shifts or overtime only = amber; no clash with this role's shifts = green (say why in the reason). Quote what they actually said - never invent days.
 - Hours wanted: a mismatch with the role (e.g. wants part time for a full-time role, or a study-visa hours cap) = amber or red by size.
 - Study: currently studying = amber (hours caps, exams, timetable); finished or not studying = green.
 - Medical questions: "No"/blank = green. Any condition disclosed = amber with the reason exactly "Discuss any support needed" — never red unless they say it stops them doing the job. Never comment on or speculate about the condition.
@@ -110,7 +126,7 @@ Rules:
 - Overtime / short notice: no or reluctant = amber.
 - Referees: fewer than two, or only friends/partner/family, or no contact details = amber.
 - Identification: none offered = amber.
-- Address and living situation: flatting, renting, living with family/partner or own home = green. Only hostel, backpackers, couch-surfing or "looking for a place" = amber.
+- Address and living situation: flatting, renting, apartment, living with family/partner, own home or anything ordinary = green. Only hostel, backpackers, couch-surfing, house-sitting or "looking for a place" = amber.
 - "Anything else that could affect employment": anything substantive = amber, or red if it clearly conflicts with the role.
 - A blank answer to a question that needed one (address, ID, commitment, holidays, availability, referees) = amber "Not answered". Blank medical, conviction, study or visa answers = green.
 - Never flag anything because of nationality, ethnicity, age, gender, religion or family status.
