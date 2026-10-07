@@ -66,7 +66,7 @@ async function flagForm(applicationId) {
   if (!CLAUDE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) throw new Error('Server not configured');
 
   const ar = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${encodeURIComponent(applicationId)}` +
-    `&select=id,job_id,extended_form_completed,interview_notes,on_visa,visa_type,visa_length,visa_conditions,work_rights`,
+    `&select=id,job_id,extended_form_completed,interview_notes,interview_token,on_visa,visa_type,visa_length,visa_conditions,work_rights`,
     { headers: svc() });
   const rows = await ar.json().catch(() => []);
   if (!Array.isArray(rows) || !rows.length) return { ok: false, status: 404, error: 'Application not found' };
@@ -163,6 +163,20 @@ Reply with ONLY JSON, no other text:
     body: JSON.stringify({ form_flags: flags, form_flags_at: new Date().toISOString() })
   });
   if (!pr.ok) throw new Error('Save failed ' + pr.status + ' ' + (await pr.text().catch(() => '')).slice(0, 200));
+
+  // Redraw the application-form PDF with the flags in it (7 Oct 2026) -
+  // through complete-interview's existing rebuildPdf path, which reads
+  // form_flags from the row we have just saved.
+  if (app.interview_token) {
+    try {
+      const base = process.env.URL || 'https://jobs.revive.co.nz';
+      const rb = await fetch(`${base}/.netlify/functions/complete-interview`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: app.interview_token, rebuildPdf: true })
+      });
+      if (!rb.ok) console.error('PDF rebuild after flags failed', rb.status, (await rb.text().catch(() => '')).slice(0, 200));
+    } catch (e) { console.error('PDF rebuild after flags threw', e); }
+  }
 
   const count = f => Object.values(flags).filter(x => x.flag === f).length;
   return { ok: true, red: count('red'), amber: count('amber'), green: count('green') };

@@ -112,10 +112,19 @@ function styleOf(style, base) {
 const COL_GAP = 0;
 const LEFT_FRACTION = 0.40;
 
+// Review flags (7 Oct 2026): when any form row carries a flag, every qa row
+// gets a narrow third column on the right holding a red flag, an amber
+// caution triangle or a green tick, and red/amber rows show the reason under
+// the answer. Drawn as vector shapes - the base fonts have no such glyphs.
+const FLAG_COL = 24;
+const FLAG_FILL = { red: '0.996 0.949 0.949', amber: '1 0.984 0.922' };      // row tint
+const FLAG_INK  = { red: '0.725 0.110 0.110', amber: '0.573 0.251 0.055', green: '0.420 0.447 0.502' };
+
 function layout(blocks, base, maxWidth) {
   const out = [];
   const leftW = maxWidth * LEFT_FRACTION;
   const rightW = maxWidth - leftW - COL_GAP;
+  const flagCol = blocks.some(b => b.style === 'qa' && b.flag) ? FLAG_COL : 0;
 
   for (const b of blocks) {
     if (b.style === 'space') { out.push({ kind: 'space', h: b.h || 5 }); continue; }
@@ -124,16 +133,20 @@ function layout(blocks, base, maxWidth) {
     if (b.style === 'qa') {
       // One table row: bordered cells, question on a shaded left cell.
       const padX = 5, padY = 3.2;
+      const answerW = maxWidth - leftW - flagCol - padX * 2;
       const qLines = wrap(b.question, base - 0.5, true, leftW - padX * 2);
-      const aLines = wrap(b.answer || '', base, false, maxWidth - leftW - padX * 2);
+      const aLines = wrap(b.answer || '', base, false, answerW);
+      const showReason = b.reason && (b.flag === 'red' || b.flag === 'amber');
+      const rLines = showReason ? wrap(b.reason, base - 1, true, answerW) : [];
       const lineH = base + 2.6;
-      const rows = Math.max(qLines.length, aLines.length, 1);
+      const rows = Math.max(qLines.length, aLines.length + rLines.length, 1);
       out.push({
         kind: 'row',
         h: rows * lineH + padY * 2,
-        qLines, aLines, lineH, padX, padY,
-        leftW, rightW: maxWidth - leftW,
-        leftSize: base - 0.5, rightSize: base
+        qLines, aLines, rLines, lineH, padX, padY,
+        leftW, rightW: maxWidth - leftW - flagCol, flagW: flagCol,
+        flag: flagCol ? (b.flag || null) : null,
+        leftSize: base - 0.5, rightSize: base, reasonSize: base - 1
       });
       continue;
     }
@@ -188,13 +201,20 @@ function contentStream(lines) {
       // Shaded descriptor cell
       parts.push('0.945 0.949 0.957 rg ' + x0.toFixed(2) + ' ' + y.toFixed(2) + ' ' +
                  l.leftW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re f 0 0 0 rg');
+      // Red / amber rows: tint the answer and flag cells
+      if (l.flag && FLAG_FILL[l.flag]) {
+        parts.push(FLAG_FILL[l.flag] + ' rg ' + x1.toFixed(2) + ' ' + y.toFixed(2) + ' ' +
+                   (l.rightW + l.flagW).toFixed(2) + ' ' + l.h.toFixed(2) + ' re f 0 0 0 rg');
+      }
       // Cell borders
       parts.push('0.5 w 0.804 0.827 0.855 RG ' +
                  x0.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.leftW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S ' +
-                 x1.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.rightW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S');
+                 x1.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.rightW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S' +
+                 (l.flagW ? ' ' + x2.toFixed(2) + ' ' + y.toFixed(2) + ' ' + l.flagW.toFixed(2) + ' ' + l.h.toFixed(2) + ' re S' : ''));
+      if (l.flag) parts.push(flagIcon(l.flag, x2 + l.flagW / 2, top - l.padY - 7));
 
       let ty = top - l.padY;
-      for (let i = 0; i < Math.max(l.qLines.length, l.aLines.length); i++) {
+      for (let i = 0; i < Math.max(l.qLines.length, l.aLines.length + (l.rLines ? l.rLines.length : 0)); i++) {
         ty -= l.lineH;
         const baseline = ty + l.lineH * 0.24;
         if (l.qLines[i]) {
@@ -207,8 +227,13 @@ function contentStream(lines) {
                      (x1 + l.padX).toFixed(2) + ' ' + baseline.toFixed(2) + ' Tm (' +
                      escapePdf(l.aLines[i]) + ') Tj ET');
         }
+        const ri = i - l.aLines.length;
+        if (ri >= 0 && l.rLines && l.rLines[ri]) {
+          parts.push('BT /F2 ' + l.reasonSize.toFixed(2) + ' Tf ' + (FLAG_INK[l.flag] || '0 0 0') + ' rg 1 0 0 1 ' +
+                     (x1 + l.padX).toFixed(2) + ' ' + baseline.toFixed(2) + ' Tm (' +
+                     escapePdf(l.rLines[ri]) + ') Tj ET 0 0 0 rg');
+        }
       }
-      void x2;
     } else if (l.kind === 'tick') {
       y -= l.h;
       if (l.box) {
@@ -235,6 +260,26 @@ function contentStream(lines) {
     }
   }
   return parts.join('\n');
+}
+
+// One icon, centred on (cx, cy), about 11 pt tall.
+function flagIcon(flag, cx, cy) {
+  const f = n => n.toFixed(2);
+  if (flag === 'red') {
+    // Pole + red pennant
+    return '1 w 0.30 0.30 0.30 RG ' + f(cx - 3.5) + ' ' + f(cy - 5.5) + ' m ' + f(cx - 3.5) + ' ' + f(cy + 5.5) + ' l S ' +
+           '0.863 0.149 0.149 rg ' + f(cx - 3) + ' ' + f(cy + 5.5) + ' m ' + f(cx + 5) + ' ' + f(cy + 2.5) + ' l ' +
+           f(cx - 3) + ' ' + f(cy - 0.5) + ' l h f 0 0 0 rg';
+  }
+  if (flag === 'amber') {
+    // Amber triangle with a dark "!"
+    return '0.961 0.620 0.043 rg ' + f(cx) + ' ' + f(cy + 5.5) + ' m ' + f(cx + 6) + ' ' + f(cy - 5) + ' l ' +
+           f(cx - 6) + ' ' + f(cy - 5) + ' l h f ' +
+           '0.2 0.2 0.2 rg ' + f(cx - 0.7) + ' ' + f(cy - 1) + ' 1.4 4 re f ' + f(cx - 0.7) + ' ' + f(cy - 3.6) + ' 1.4 1.4 re f 0 0 0 rg';
+  }
+  // Green tick
+  return '1.6 w 1 J 1 j 0.086 0.502 0.239 RG ' + f(cx - 4.5) + ' ' + f(cy) + ' m ' + f(cx - 1.5) + ' ' + f(cy - 3.5) + ' l ' +
+         f(cx + 5) + ' ' + f(cy + 4) + ' l S 0 J 0 j';
 }
 
 function emit(pages, title) {

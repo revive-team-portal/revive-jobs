@@ -43,7 +43,7 @@ exports.handler = async (event) => {
   try {
     // 1. Verify token is valid and application exists
     const appRes = await supabaseGet(
-      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed,interview_notes,interview_slot_id,declarations_agreed,declarations_agreed_at`
+      `${SUPABASE_URL}/rest/v1/applications?interview_token=eq.${encodeURIComponent(token)}&select=id,full_name,email,phone,location,nationality,visa_type,visa_country,visa_conditions,on_visa,work_rights,work_rights_detail,referral_source,cover_letter,documents,created_at,job_id,extended_form_completed,interview_notes,interview_slot_id,declarations_agreed,declarations_agreed_at,form_flags`
     );
 
     if (!appRes.length) {
@@ -321,7 +321,8 @@ async function rebuildPdfFor(application) {
   }
   await attachApplicationPdf({
     application, job: (j2 && j2[0]) || {}, slotTime: when,
-    questionAnswers: qa2, declarationList: ds2
+    questionAnswers: qa2, declarationList: ds2,
+    flags: application.form_flags || null
   });
 }
 
@@ -378,7 +379,11 @@ function labelFor(map, value, fallback) {
   return map[value] || value || fallback || '';
 }
 
-async function attachApplicationPdf({ application, job, slotTime, questionAnswers, declarationList }) {
+async function attachApplicationPdf({ application, job, slotTime, questionAnswers, declarationList, flags }) {
+  // Review flags (7 Oct 2026) - written by _formflags after the form is in;
+  // every rebuild (booking, reschedule, flagging) reads them from the row.
+  const formFlags = (flags && typeof flags === 'object') ? flags
+    : ((application.form_flags && typeof application.form_flags === 'object') ? application.form_flags : null);
   const workRights = labelFor({
     citizen: 'NZ / Australian Citizen', resident: 'NZ Permanent Resident',
     work_visa: 'Work / Student Visa', student_visa: 'Student Visa', other: 'Other'
@@ -417,7 +422,10 @@ async function attachApplicationPdf({ application, job, slotTime, questionAnswer
     const qa = questionAnswers[k];
     // Blank answers stay blank — a printed form is easier to read with gaps
     // than with "no answer" repeated down the page.
-    blocks.push({ style: 'qa', question: qa.question, answer: (qa.answer && String(qa.answer).trim()) || '' });
+    const fl = formFlags && formFlags[k];
+    blocks.push({ style: 'qa', question: qa.question, answer: (qa.answer && String(qa.answer).trim()) || '',
+                  flag: fl && ['red', 'amber', 'green'].includes(fl.flag) ? fl.flag : null,
+                  reason: fl ? fl.reason : '' });
   });
 
   blocks.push({ style: 'rule' });
