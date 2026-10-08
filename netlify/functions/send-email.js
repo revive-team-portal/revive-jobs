@@ -51,7 +51,8 @@ async function loadSettings(keys) {
 
 function esc(v) {
   return String(v === null || v === undefined ? '' : v)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function fillTokens(text, values) {
@@ -107,6 +108,7 @@ function templateValues(data) {
     : '';
   return {
     applicant_name: data.applicantName || '',
+    first_name: String(data.applicantName || '').trim().split(/\s+/)[0] || '',
     applicant_email: data.applicantEmail || '',
     applicant_phone: data.applicantPhone || 'Not provided',
     applicant_location: data.applicantLocation || 'Not provided',
@@ -233,7 +235,7 @@ async function resolveReplyTo(data) {
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json'
@@ -259,6 +261,19 @@ exports.handler = async (event) => {
   }
 
   const { type } = data;
+
+  // Free-text email written in the admin. Gated: only the signed-in jobs admin
+  // may send one, and the recipient is looked up from the application row, so
+  // this can never be used to send arbitrary mail to an arbitrary address.
+  if (type === 'custom') {
+    try {
+      const out = await sendCustomEmail(event, data);
+      return { statusCode: out.status || 200, headers, body: JSON.stringify(out.body) };
+    } catch (err) {
+      console.error('Custom email error:', err);
+      return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    }
+  }
 
   try {
     if (type !== 'bulk_rejection') data = await enrichFromJob(data);
@@ -675,6 +690,88 @@ async function sendBulkRejections(applicants, jobTitle, replyTo) {
     await new Promise(r => setTimeout(r, 100));
   }
   return results;
+}
+
+// ============================================================
+// CUSTOM EMAIL (admin-written, sent to ticked applicants one at a time)
+// ============================================================
+
+const JOBS_ADMIN_EMAIL = 'jobs@revivealicious.com';
+
+function sbHeaders(extra) {
+  return { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+           'Accept-Profile': 'jobs', 'Content-Profile': 'jobs', ...(extra || {}) };
+}
+
+// The admin page holds a Supabase session for the jobs admin account on
+// Revive Apps. Anyone else — or no token — is refused.
+async function isJobsAdmin(event) {
+  const h = event.headers || {};
+  const auth = h.authorization || h.Authorization || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) return false;
+    const u = await r.json();
+    return String(u.email || '').toLowerCase() === JOBS_ADMIN_EMAIL;
+  } catch (err) {
+    console.error('Admin check failed', err);
+    return false;
+  }
+}
+
+async function sendCustomEmail(event, data) {
+  if (!(await isJobsAdmin(event))) return { status: 401, body: { error: 'Not signed in to the jobs admin' } };
+
+  const applicationId = String(data.applicationId || '').trim();
+  const subjectTpl = String(data.subject || '').trim();
+  const bodyTpl = String(data.body || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(applicationId)) return { status: 400, body: { error: 'Missing applicant' } };
+  if (!subjectTpl) return { status: 400, body: { error: 'Subject is empty' } };
+  if (!bodyTpl) return { status: 400, body: { error: 'Message is empty' } };
+  if (subjectTpl.length > 200) return { status: 400, body: { error: 'Subject is over 200 characters' } };
+  if (bodyTpl.length > 10000) return { status: 400, body: { error: 'Message is over 10,000 characters' } };
+
+  const ar = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${applicationId}&select=id,email,full_name,job_id,custom_emails`,
+    { headers: sbHeaders() });
+  const app = ar.ok ? (await ar.json())[0] : null;
+  if (!app) return { status: 404, body: { error: 'Applicant not found' } };
+  if (!app.email) return { status: 400, body: { error: 'No email address on this application' } };
+
+  let d = await enrichFromJob({ jobId: app.job_id, applicantName: app.full_name, applicantEmail: app.email });
+  const replyTo = await resolveReplyTo({ jobId: app.job_id });
+  d.employerEmail = replyTo;
+  const values = templateValues(d);
+  values.employer_email = replyTo;
+
+  const subject = fillTokens(subjectTpl, values).replace(/[\r\n]+/g, ' ').trim();
+  const payload = {
+    from: FROM_EMAIL,
+    to: app.email,
+    subject: subject || `Revive Cafe — ${d.jobTitle || 'Your application'}`,
+    html: renderTemplate(bodyTpl, values, d.jobTitle || 'Revive Cafe', replyTo),
+    reply_to: replyTo,
+    __type: 'custom'
+  };
+  if (data.bulk) payload.__bulk = true;
+  const result = await sendEmail(payload);
+
+  // Record it on the applicant (subject + when), so the admin shows what went out.
+  const log = Array.isArray(app.custom_emails) ? app.custom_emails : [];
+  log.push({ subject: payload.subject, at: new Date().toISOString(), queued: !!result.queued });
+  let recorded = true;
+  try {
+    const u = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${applicationId}`, {
+      method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+      body: JSON.stringify({ custom_emails: log })
+    });
+    recorded = u.ok;
+  } catch (err) { recorded = false; }
+
+  return { status: 200, body: { success: true, id: result.id, queued: !!result.queued, recorded, custom_emails: log } };
 }
 
 // ============================================================
