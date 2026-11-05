@@ -105,6 +105,15 @@ exports.handler = async (event) => {
     if (jrows && jrows[0]) { jobTitle = jrows[0].title || ''; jobDescription = jrows[0].description || ''; }
   }
 
+  // In-progress guard (5 Nov 2026, portal review session 8): claim the row before the AI call, so a
+  // second tab, device or click can't start the same analysis while one is running. The claim lapses
+  // after 2 minutes (this function is limited to seconds), so a failed run can be retried.
+  // Until the analysis_requested_at column exists the claim is skipped and the analysis runs as before.
+  const claim = await claimAnalysis(id);
+  if (claim === 'busy') {
+    return { statusCode: 409, headers, body: JSON.stringify({ ok: false, in_progress: true, error: 'Analysis already running' }) };
+  }
+
   // 4. Analyse
   let analysis;
   try {
@@ -150,6 +159,27 @@ exports.handler = async (event) => {
 
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true, ...patch, home }) };
 };
+
+// 'claimed' = this call owns the analysis; 'busy' = another request started < 2 min ago;
+// 'skip' = the claim couldn't be made (e.g. column not created yet) — carry on regardless.
+async function claimAnalysis(id) {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 120000).toISOString();
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/applications?id=eq.${encodeURIComponent(id)}` +
+      `&or=(analysis_requested_at.is.null,analysis_requested_at.lt.${encodeURIComponent(cutoff)})&select=id`,
+      { method: 'PATCH', headers: svc({ 'Content-Profile': 'jobs', Prefer: 'return=representation' }),
+        body: JSON.stringify({ analysis_requested_at: now.toISOString() }) }
+    );
+    if (!r.ok) { console.warn('Analysis claim skipped', r.status, (await r.text().catch(() => '')).slice(0, 200)); return 'skip'; }
+    const rows = await r.json().catch(() => null);
+    return Array.isArray(rows) && rows.length ? 'claimed' : 'busy';
+  } catch (err) {
+    console.warn('Analysis claim skipped', err);
+    return 'skip';
+  }
+}
 
 async function analyse({ cvText, coverLetter, answers, jobTitle, jobDescription, attachments, hasImage }) {
   const prompt = `You are a recruitment analyst for Revive Cafe, a plant-based cafe and food brand in Auckland, New Zealand.
