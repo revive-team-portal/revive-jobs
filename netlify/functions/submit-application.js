@@ -123,7 +123,7 @@ exports.handler = async (event) => {
       const settings = await loadSettings(['company_history', ...SETTINGS_KEYS]);
       const mail = await fetch(`${base()}/.netlify/functions/send-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...require('./_jobsauth').internalHeaders() },
         body: JSON.stringify({
           type: 'application_confirmation',
           jobId: job_id,
@@ -166,7 +166,7 @@ exports.handler = async (event) => {
       await Promise.race([
         fetch(`${base()}/.netlify/functions/analyse-application`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...require('./_jobsauth').internalHeaders() },
           body: JSON.stringify({ application_id: saved.id })
         }),
         new Promise(r => setTimeout(r, 7000))

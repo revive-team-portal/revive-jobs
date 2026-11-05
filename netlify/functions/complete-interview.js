@@ -270,7 +270,7 @@ async function sendInterviewConfirmation(application, job, slotTime, token) {
     const base = process.env.URL || 'https://jobs.revive.co.nz';
     const res = await fetch(`${base}/.netlify/functions/send-email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...require('./_jobsauth').internalHeaders() },
       body: JSON.stringify({
         type: 'interview_confirmation',
         jobId: application.job_id,

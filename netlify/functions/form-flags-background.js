@@ -17,6 +17,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: '' };
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch { return { statusCode: 400, body: '' }; }
+  // Jobs admin only (5 Nov 2026): the admin's no-cors call can't send headers, so its session token rides in the body.
+  if (!(await require('./_jobsauth').allowed(event, body.token))) return { statusCode: 401, body: '' };
   const id = String(body.application_id || '').trim();
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { statusCode: 400, body: '' };
 

@@ -262,6 +262,12 @@ exports.handler = async (event) => {
 
   const { type } = data;
 
+  // Every template type is jobs admin or this site's own functions only (5 Nov 2026): before, anyone
+  // could post e.g. bulk_rejection with a list of addresses and mail them from our domain.
+  if (type !== 'custom' && !(await require('./_jobsauth').allowed(event))) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Not signed in to the jobs admin' }) };
+  }
+
   // Free-text email written in the admin. Gated: only the signed-in jobs admin
   // may send one, and the recipient is looked up from the application row, so
   // this can never be used to send arbitrary mail to an arbitrary address.

@@ -15,7 +15,7 @@ const { SETTINGS_KEYS, benefitsTextFor } = require('./_benefits');
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json'
 };
@@ -34,6 +34,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
+  // Jobs admin or this site's own functions only (5 Nov 2026) — was callable by anyone.
+  if (!(await require('./_jobsauth').allowed(event))) return { statusCode: 401, headers, body: JSON.stringify({ error: 'Not signed in to the jobs admin' }) };
   if (!CLAUDE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server not configured.' }) };
   }
