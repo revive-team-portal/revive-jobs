@@ -20,6 +20,18 @@ exports.handler = async (event) => {
     headers: { 'apikey': PORTAL_ANON, 'Authorization': `Bearer ${token}` }
   });
   if (!userRes.ok) return { statusCode: 401, headers, body: '{"error":"Invalid portal token"}' };
+  const user = await userRes.json();
+
+  // 1b. Only active portal users with the Jobs app (or admins) get the jobs admin session (5 Nov 2026 —
+  //     before, any portal login could open all job applications). Read with the user's own token; the
+  //     portal's RLS lets a user read their own profile and app-access rows.
+  const ph = { 'apikey': PORTAL_ANON, 'Authorization': `Bearer ${token}` };
+  const prof = (await (await fetch(`${PORTAL_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_admin,active`, { headers: ph })).json().catch(() => []))[0];
+  if (!prof || prof.active === false) return { statusCode: 403, headers, body: '{"error":"No access"}' };
+  if (!prof.is_admin) {
+    const acc = await (await fetch(`${PORTAL_URL}/rest/v1/user_app_access?user_id=eq.${user.id}&app_id=eq.jobs&select=app_id`, { headers: ph })).json().catch(() => []);
+    if (!Array.isArray(acc) || !acc.length) return { statusCode: 403, headers, body: '{"error":"You do not have access to Jobs"}' };
+  }
 
   // 2. Generate a magic-link OTP for the jobs admin user
   const SVC = process.env.SUPABASE_SVC_KEY;
