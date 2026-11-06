@@ -1,3 +1,4 @@
+require('./_ailog'); // logs every Claude API call for the weekly cost email (docs/ai-usage.md)
 // ============================================================
 // REVIVE CAFE JOBS - Job Ad Text
 // Netlify Function: /netlify/functions/job-ad-text

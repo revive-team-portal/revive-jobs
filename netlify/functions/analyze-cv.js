@@ -1,3 +1,4 @@
+require('./_ailog'); // logs every Claude API call for the weekly cost email (docs/ai-usage.md)
 // ============================================================
 // REVIVE CAFE JOBS - CV Analysis Function
 // Netlify Function: /netlify/functions/analyze-cv
